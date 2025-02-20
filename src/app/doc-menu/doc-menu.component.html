@@ -1,0 +1,41 @@
+<!-- doc-menu.component.html -->
+<ul class="menu-list">
+  <ng-template #recursiveList let-nodes>
+    <ng-container *ngFor="let node of nodes">
+      <li>
+        <div class="menu-item" (click)="toggleNode(node)">
+          <!-- Arrow for expand/collapse if node has children -->
+          <span
+            *ngIf="node.children"
+            class="arrow"
+            [class.expanded]="node.expanded"
+          ></span>
+
+          <!-- If there's a path, it's a doc link -->
+          <a
+            *ngIf="node.path"
+            [routerLink]="['/doc', node.path]"
+            (click)="$event.stopPropagation()" 
+            >{{ node.title }}</a
+          >
+
+          <!-- If no path, it's a "folder" -->
+          <span *ngIf="!node.path">{{ node.title }}</span>
+        </div>
+
+        <!-- If expanded, recursively show children -->
+        <ul
+          *ngIf="node.children && node.children.length && node.expanded"
+          class="submenu-list"
+        >
+          <ng-container
+            *ngTemplateOutlet="recursiveList; context: { $implicit: node.children }"
+          ></ng-container>
+        </ul>
+      </li>
+    </ng-container>
+  </ng-template>
+
+  <!-- Render the top-level nodes -->
+  <ng-container *ngTemplateOutlet="recursiveList; context: { $implicit: docsTree }"></ng-container>
+</ul>

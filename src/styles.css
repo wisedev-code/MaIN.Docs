@@ -1,1 +1,45 @@
-/* You can add global styles to this file, and also import other style files */
+/* Apply dark theme */
+body {
+    background-color: #121212;
+    color: #ffffff;
+    font-family: 'Arial', sans-serif;
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* Style the toolbar */
+  mat-toolbar {
+    background-color: #1e1e1e;
+    padding: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  /* Search box */
+  .search-box {
+    background-color: #333;
+    border: 1px solid #555;
+    padding: 5px;
+    border-radius: 5px;
+    color: white;
+  }
+  
+  /* Sidebar styling */
+  .sidenav {
+    width: 250px;
+    height: 100vh;
+    background-color: #1e1e1e;
+    color: white;
+    padding: 20px;
+    position: fixed;
+    left: 0;
+    top: 0;
+    overflow-y: auto;
+  }
+  
+  /* Content area (pushed to right) */
+  .content {
+    padding: 10px;
+  }
+  

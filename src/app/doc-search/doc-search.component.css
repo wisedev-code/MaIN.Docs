@@ -1,0 +1,59 @@
+/* Container to position the dropdown below the input */
+.search-container {
+  position: relative;
+  display: inline-block; /* so the results-list aligns under the input */
+}
+
+/* Larger, modern-looking search box */
+.search-box {
+  background-color: #333;
+  border: 1px solid #555;
+  padding: 12px 16px;     /* Bigger padding for a larger input */
+  border-radius: 8px;     /* Slightly rounded corners */
+  color: #fff;
+  width: 200px;           /* Wider input */
+  font-size: 18px;        /* Larger font in the input */
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3); /* Subtle shadow for depth */
+  outline: none;          /* Remove default focus outline if desired */
+}
+
+/* Dropdown list styling */
+.results-list {
+  position: absolute;
+  top: 60px;              /* Enough space to sit below the taller input */
+  left: 0;
+  width: 300px;           /* Match input width */
+  background-color: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 8px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  max-height: 400px;      /* Larger max-height for more results */
+  overflow-y: auto;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5); /* Deeper shadow for the dropdown */
+}
+
+/* Each result item */
+.results-list li {
+  padding: 10px;
+  border-bottom: 1px solid #333;
+  cursor: pointer;
+  font-size: 14px;        /* Smaller font than the input, for contrast */
+}
+
+/* Remove border on the last item */
+.results-list li:last-child {
+  border-bottom: none;
+}
+
+/* Hover effect */
+.results-list li:hover {
+  background-color: #2e2e2e;
+}
+
+/* Title styling inside each result item */
+.result-title {
+  color: #fff;
+}

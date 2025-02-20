@@ -1,0 +1,15 @@
+<!-- doc-search.component.html -->
+<div class="search-container">
+  <input
+    type="text"
+    class="search-box"
+    placeholder="🔎 Search docs..."
+    (input)="onSearch($event)"
+    [value]="query"
+  />
+  <ul class="results-list" *ngIf="results.length > 0">
+    <li *ngFor="let item of results" (click)="navigateToDoc(item.path)">
+      <span class="result-title">{{ item.title }}</span>
+    </li>
+  </ul>
+</div>

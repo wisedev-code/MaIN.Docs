@@ -1,0 +1,66 @@
+/* Container resets */
+.menu-list, .submenu-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Each list item becomes a 'tile' */
+li {
+  margin-bottom: 8px;               /* space between tiles */
+  background-color: #242424;        /* slightly lighter than the background */
+  border-radius: 6px;               /* rounded corners */
+  padding: 8px 12px;                /* internal padding */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* subtle shadow */
+  transition: background-color 0.2s ease;
+  cursor: pointer;
+}
+
+/* Hover effect for tiles */
+li:hover {
+  background-color: #292038;
+}
+
+/* The row that holds the arrow + link/folder name */
+.menu-item {
+  display: flex;
+  align-items: center;
+}
+
+/* Expand/collapse arrow styling */
+.arrow {
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  background-image: url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNCIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgNCA2IiBmaWxsPSIjZmZmIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxwYXRoIGQ9Ik0yLjI5NzMgMC42NDI4OUwwIDIuODc2NSBMMi4yOTczIDUuMTA5NCBMMy4zNTU5IDQuMDUxNiBMMjEuNTY0MSAyLjg3NjUgTDIuMzU1OSAxLjcxMTQgTDIuMjk3MyAwLjY0Mjg5Ii8+PC9zdmc+");
+  background-repeat: no-repeat;
+  background-size: contain;
+  transform: rotate(0deg);
+  transition: transform 0.2s ease;
+}
+
+/* Rotate arrow when expanded */
+.arrow.expanded {
+  transform: rotate(90deg);
+}
+
+/* Link styling inside the tile */
+a {
+  color: #ddd;
+  text-decoration: none;
+  flex: 1;                /* let link text take remaining space */
+  transition: color 0.2s;
+}
+
+/* On hover (for the link text), just lighten it a bit */
+li:hover a {
+  color: #fff;
+}
+
+/* Nested (child) list styling */
+.submenu-list {
+  margin-top: 8px;         /* space between parent tile and children */
+  margin-left: 12px;       /* indentation for nested items */
+  padding-left: 8px;       /* internal left pad */
+  border-left: 2px solid #333; /* subtle vertical line */
+}

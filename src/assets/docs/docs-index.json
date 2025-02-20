@@ -1,0 +1,112 @@
+[
+  {
+    "title": "Overview",
+    "path": "overview"
+  },
+  {
+    "title": "MaIN CLI",
+    "path": "cli"
+  },
+  {
+    "title": "Configuration settings",
+    "path": "settings"
+  },
+  {
+    "title": "Getting started",
+    "path": "getting-started"
+  },
+  {
+    "title": "Examples",
+    "children": [
+      {
+        "title": "Example runner",
+        "path": "examples/example-runner"
+      },
+      {
+        "title": "Chat",
+        "children": [
+      {
+        "title": "Basic chat",
+        "path": "examples/example-chat-basic"
+      },
+      {
+        "title": "Chat existing",
+        "path": "examples/example-chat-existing"
+      },
+      {
+        "title": "Chat with files",
+        "path": "examples/example-chat-files"
+      },
+      {
+        "title": "Chat with image-gen",
+        "path": "examples/example-chat-image"
+      },
+      {
+        "title": "Chat with vision",
+        "path": "examples/example-chat-vision"
+      }]},
+      {
+        "title": "Agent",
+        "children": [
+          {
+            "title": "Basic agent",
+            "path": "examples/example-agent-basic"
+          },
+          {
+            "title": "Agent redirect",
+            "path": "examples/example-agent-redirect"
+          },
+          {
+            "title": "Agent redirect img",
+            "path": "examples/example-agent-redirect-img"
+          },
+          {
+            "title": "Agent data source",
+            "path": "examples/example-agent-source"
+          },
+          {
+            "title": "Agent become",
+            "path": "examples/example-agent-become"
+          },
+          {
+            "title": "Two agents talking",
+            "path": "examples/example-agent-talking"
+          }
+          ]},
+          {
+            "title": "Flow",
+            "children": [
+              {
+                "title": "Agents as flow",
+                "path": "examples/example-agent-flow"
+              },
+              {
+                "title": "Flow loaded",
+                "path": "examples/example-agent-load-flow"
+              }
+              ]}
+    ]
+  },
+  {
+    "title": "Framework",
+    "children": [
+      {
+        "title": "Contracts",
+        "children": [
+          {
+            "title": "ChatContext",
+            "path": "contracts/chat-context"
+          },
+          {
+            "title": "AgentContext",
+            "path": "contracts/agent-context"
+          },
+          {
+            "title": "FlowContext",
+            "path": "contracts/flow-context"
+          }
+        ]
+      }
+    ]
+  }
+]
