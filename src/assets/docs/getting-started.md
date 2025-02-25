@@ -85,7 +85,7 @@ Key features used in example:
 ## CLI Configuration Helper
 
 First time user? Run our CLI
-[redirect to cli page]
+[Cli Page](cli)
 
 ## Next Steps
 

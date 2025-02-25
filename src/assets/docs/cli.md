@@ -13,14 +13,14 @@ The MaIN CLI (`mcli`) is your companion tool for managing AI workflows and servi
 > - Set execution policies
 > - Create uninstaller
 
-Download and unpack content from this link https://1drv.ms/u/s!AnWkWN8pJdeNbUh2DLynE6j1PvA?e=kfIlty
+Download and unpack content from this link [Download](https://1drv.ms/u/s!AnWkWN8pJdeNbUh2DLynE6j1PvA?e=kfIlty)
 
 ```bash
 .\install-mcli.ps1
 ```
 
 ### (Linux/Mac)
-Download and unpack content from this link https://1drv.ms/u/s!AnWkWN8pJdeNc680-yrcANf9a-Y?e=YLnv4b
+Download and unpack content from this link [Download](https://1drv.ms/u/s!AnWkWN8pJdeNc680-yrcANf9a-Y?e=YLnv4b)
 > - You might need some sudo permissions to set default model path
 
 ```bash
