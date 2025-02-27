@@ -84,7 +84,7 @@ Key features used in example:
 
 ## CLI Configuration Helper
 
-First time user? Run our [CLI](doc/cli)
+First time user? Run our [CLI](#/doc/cli)
 
 ## Next Steps
 
