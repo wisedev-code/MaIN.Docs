@@ -20,8 +20,8 @@ Download and unpack content from this link [Download](https://1drv.ms/u/s!AnWkWN
 ```
 
 ### (Linux/Mac)
-Download and unpack content from this link [Download](https://1drv.ms/u/s!AnWkWN8pJdeNc680-yrcANf9a-Y?e=YLnv4b)
-> - You might need some sudo permissions to set default model path
+Download and unpack content from this link [Download](https://1drv.ms/u/s!AnWkWN8pJdeNc680-yrcANf9a-Y?e=yPhajU)
+> - You might need some sudo permissions to set default model path or run api scripts
 
 ```bash
 .\install-mcli.sh
