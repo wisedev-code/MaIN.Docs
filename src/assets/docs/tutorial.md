@@ -1,4 +1,4 @@
-# 🚀 Getting Started with MaIN
+# 🚀 Basic Tutorial
 
 MaIN is a minimalist AI orchestration library designed to get you chatting/designing/.. with LLMs in .NET with minimal setup. Let's get started in under 5 minutes!
 

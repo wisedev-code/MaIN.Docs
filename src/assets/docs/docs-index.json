@@ -4,6 +4,10 @@
     "path": "overview"
   },
   {
+    "title": "How to start",
+    "path": "how-to"
+  },
+  {
     "title": "MaIN CLI",
     "path": "cli"
   },
@@ -12,8 +16,8 @@
     "path": "settings"
   },
   {
-    "title": "Getting started",
-    "path": "getting-started"
+    "title": "Tutorial",
+    "path": "tutorial"
   },
   {
     "title": "Examples",
@@ -84,7 +88,23 @@
                 "title": "Flow loaded",
                 "path": "examples/example-agent-load-flow"
               }
-              ]}
+              ]},
+              {
+                "title": "OpenAi Integration",
+                "children": [
+                  {
+                    "title": "Basic chat",
+                    "path": "examples/example-chat-basic-openai"
+                  },
+                  {
+                    "title": "Chat with image",
+                    "path": "examples/example-chat-image-openai"
+                  },
+                  {
+                    "title": "Agent with Web source",
+                    "path": "examples/example-agent-source-openai"
+                  }
+                  ]}
     ]
   },
   {
@@ -106,6 +126,15 @@
             "path": "contracts/flow-context"
           }
         ]
+      }
+    ]
+  },
+  {
+    "title": "Integrations",
+    "children": [
+      {
+        "title": "OpenAi",
+        "path": "integrations/openai"
       }
     ]
   }
