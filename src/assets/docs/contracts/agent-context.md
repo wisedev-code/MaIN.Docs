@@ -411,5 +411,32 @@ AgentContext existingAgentContext = await AgentContext.FromExisting(agentService
 
 ---
 
+## **WithInferenceParams(InferenceParams inferenceParams)**
+
+**Purpose**:  
+Sets the inference parameters for the agent, allowing you to customize how the agent processes and generates responses based on specific parameters. Inference parameters can influence various aspects of the agent's behavior, such as response length, temperature, and other model-specific settings.
+
+**Usage**:
+
+```csharp
+InferenceParams inferenceParams = new InferenceParams
+{
+    Temperature = 0.7f,
+    MaxTokens = 200
+};
+agentContext.WithInferenceParams(inferenceParams);
+```
+
+**Parameters**:  
+- `inferenceParams`: An `InferenceParams` object that holds the parameters for inference, such as `Temperature`, `MaxTokens`, `TopP`, etc. These parameters control the generation behavior of the agent.
+
+**Returns**:  
+- The `AgentContext` instance to enable method chaining. This allows further configurations or operations to be applied to the same agent context.
+
+---
+
 ### Summary:
+
 `AgentContext` is a powerful tool for managing AI agents within the MaIN framework. It provides flexibility in setting agent attributes, handling messages, managing chats, and interacting with agent services. With its rich set of methods, it supports creating agents, defining behaviors, processing user inputs, and ensuring that agents can seamlessly fit into various AI workflows.
+
+The addition of the `WithInferenceParams` method further enhances the ability to control how agents generate responses by adjusting inference-related parameters, allowing developers to fine-tune agent behavior to fit specific use cases.

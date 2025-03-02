@@ -243,5 +243,31 @@ List<MessageShort> chatHistory = chatContext.GetChatHistory();
 
 ---
 
+## **WithInferenceParams(InferenceParams inferenceParams)**
+
+**Purpose**:  
+Sets the inference parameters for the chat session, allowing you to customize how the AI processes and generates responses based on specific parameters. Inference parameters can influence various aspects of the chat, such as response length, temperature, and other model-specific settings.
+
+**Usage**:
+
+```csharp
+InferenceParams inferenceParams = new InferenceParams
+{
+    Temperature = 0.7f,
+    MaxTokens = 200
+};
+chatContext.WithInferenceParams(inferenceParams);
+```
+
+**Parameters**:  
+- `inferenceParams`: An `InferenceParams` object that holds the parameters for inference, such as `Temperature`, `MaxTokens`, `TopP`, etc. These parameters control the generation behavior of the chat.
+
+**Returns**:  
+- The `ChatContext` instance to enable method chaining. This allows further configurations or operations to be applied to the same chat context.
+
+---
+
 ### Summary:
 `ChatContext` provides a simple yet powerful interface for managing AI-driven chat sessions. It allows you to configure AI models, manage chat messages, attach files, and retrieve or delete chat sessions as needed. This class offers a flexible, modular approach to integrating chat functionalities into your applications, with support for both system-generated and user-generated content.
+
+The addition of the `WithInferenceParams` method further enhances the ability to control how chat responses are generated. By adjusting inference-related parameters, developers can fine-tune the chat's behavior to suit various conversational contexts or use cases.
