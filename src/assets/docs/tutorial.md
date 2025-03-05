@@ -5,7 +5,7 @@ MaIN is a minimalist AI orchestration library designed to get you chatting/desig
 ## Installation
 
 ```bash
-dotnet add package MaIN.Core
+dotnet add package MaIN.NET
 ```
 
 ## Basic Setup
