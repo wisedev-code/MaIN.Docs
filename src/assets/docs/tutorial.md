@@ -82,6 +82,19 @@ Key features used in example:
 - `WithModel()` - Choose different LLMs
 - `CompleteAsync()` - Stream responses live with `interactive: true`
 
+
+## Simple Console example
+If you dont need webapi builder, you can also initialize main anywhere in system with that approach:
+
+```csharp
+MaINBootstrapper.Initialize();
+
+await AIHub.Chat()
+        .WithModel("gemma2:2b")
+        .WithMessage("Hello, World!")
+        .CompleteAsync(interactive: true);
+```
+
 ## CLI Configuration Helper
 
 First time user? Run our [CLI](#/doc/cli)
