@@ -5,7 +5,7 @@ MaIN is a minimalist AI orchestration library designed to get you chatting/desig
 ## Installation
 
 ```bash
-dotnet add package MaIN.Core
+dotnet add package MaIN.NET
 ```
 
 ## Basic Setup
@@ -81,6 +81,19 @@ Key features used in example:
 - `WithMessage()` - Add conversation messages
 - `WithModel()` - Choose different LLMs
 - `CompleteAsync()` - Stream responses live with `interactive: true`
+
+
+## Simple Console example
+If you dont need webapi builder, you can also initialize main anywhere in system with that approach:
+
+```csharp
+MaINBootstrapper.Initialize();
+
+await AIHub.Chat()
+        .WithModel("gemma2:2b")
+        .WithMessage("Hello, World!")
+        .CompleteAsync(interactive: true);
+```
 
 ## CLI Configuration Helper
 
