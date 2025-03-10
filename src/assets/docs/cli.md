@@ -20,7 +20,7 @@ Download and unpack content from this link [Download](https://1drv.ms/u/s!AnWkWN
 ```
 
 ### (Linux/Mac)
-Download and unpack content from this link [Download](https://1drv.ms/u/s!AnWkWN8pJdeNc680-yrcANf9a-Y?e=yPhajU)
+Download and unpack content from this link [Download](https://1drv.ms/u/c/8dd72529df58a475/EXWkWN8pJdcggI1zAAAAAAAB6--Ua9o-QbpWYIE6g-na2A?e=SbXAaC)
 > - You might need some sudo permissions to set default model path or run api scripts
 
 ```bash
