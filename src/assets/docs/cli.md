@@ -161,19 +161,8 @@ This will:
 
 ## Common Workflows
 
-### Quickstart with Default Model
+### Quickstart with supported model
+
 ```bash
-mcli start-demo --models=gemma2-2b-maIN
-```
-
-### Development Setup
-```bash
-mcli start-demo --no-image-gen --no-api
-mcli model download llama3.2-3b-MaIN
-```
-
----
-
-> **Download Link Placeholder**  
-> [INSERT_OFFICIAL_DOWNLOAD_LINK_HERE]
+mcli infer chat --model llama3.2:3b
 ```

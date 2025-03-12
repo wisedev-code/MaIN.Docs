@@ -53,7 +53,7 @@ There are no boundaries — the only limit is your creativity!
   
 Want to validate your ideas? Cross-Examine with inteligent assistant, run infer chat command!
 
-**Make sure that you have model downloaded** If not, just download it with `mcli download model gemma2-2b`
+**Make sure that you have model downloaded** If not, just download it with `mcli model download gemma2-2b`
 🚀 **To launch the infer chat UI**  
 ```sh
 mcli infer chat --model gemma2:2b
