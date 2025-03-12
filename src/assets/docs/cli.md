@@ -29,30 +29,31 @@ Download and unpack content from this link [Download](https://1drv.ms/u/c/8dd725
 
 ## Command Reference
 
-### Start Demo Environment
+### Infer
 
 ```bash
-mcli start-demo [--hard] [--no-api] [--no-models] [--no-image-gen] [--models=MODEL1,MODEL2]
+mcli infer chat [--model] [--path] [--no-models] [--no-image-gen] [--models=MODEL1,MODEL2]
 ```
 
 | Option          | Description                                      |
 |-----------------|--------------------------------------------------|
-| `--hard`        | Perform complete system cleanup before starting  |
-| `--no-api`      | Skip API service initialization                 |
-| `--no-models`   | Skip model download phase                       |
-| `--no-image-gen`| Disable image generation service                |
-| `--models`      | Specify comma-separated list of models to download |
+| `--model`       | Name of model that will be used                  |
+| `--path`      | Path to model file (if not one of supported models)|
+| `--backend`   | If you want to use one of integration you need to specify desired backend|
 
 **Examples:**
 ```bash
-# Fresh start with cleanup
-mcli start-demo --hard
+# Use one of supported models (you can check what is supported by calling mcli model list)
+mcli infer chat --model gemma2:2b
 
-# Minimal setup without images
-mcli start-demo --no-image-gen
+# Use cuseom model (name will be displayed in UI)
+mcli infer chat --path /directory/my_models/some_model.gguf --model MyCustomModel
 
-# Custom model selection
-mcli start-demo --models=gemma2-2b-maIN,llama2-7b
+# Use openAi integration
+mcli infer chat --model o1-mini --backend openai
+mcli infer chat --model dall-e-3 --backend openai
+
+#You can also use local image generation the same way so just --model FLUX.1_Shnell 
 ```
 
 ### API Management
@@ -91,6 +92,13 @@ Features:
 # Start image generation service
 mcli image-gen
 ```
+
+### Configuration variables
+```bash
+mcli config set
+```
+Used to request globally environment variables that package can use. At the moment it supports OPEN_AI_KEY and ModelsPath
+Command will ask you to fill desired variable, you can just run mcli config set and follow on screen instruction
 
 ### Model Management
 

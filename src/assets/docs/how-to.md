@@ -50,12 +50,13 @@ Once you're comfortable with the basics, dive into the **examples section** to s
 ## **4. Experiment and Have Fun!**  
 
 There are no boundaries — the only limit is your creativity!
-💡 **Run your agent flow in real time:**  
-If you've built a flow of agents, you can **test it live** using the **technological demo page**.  
+  
+Want to validate your ideas? Cross-Examine with inteligent assistant, run infer chat command!
 
-🚀 **To launch the demo:**  
+**Make sure that you have model downloaded** If not, just download it with `mcli download model gemma2-2b`
+🚀 **To launch the infer chat UI**  
 ```sh
-mcli start-demo
+mcli infer chat --model gemma2:2b
 ```  
 
 Go ahead and explore—**the sky is the limit!** 🎉  
