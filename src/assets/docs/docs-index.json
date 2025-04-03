@@ -38,6 +38,10 @@
         "path": "examples/example-chat-existing"
       },
       {
+        "title": "Chat with reasoning",
+        "path": "examples/example-chat-reasoning"
+      },
+      {
         "title": "Chat with files",
         "path": "examples/example-chat-files"
       },

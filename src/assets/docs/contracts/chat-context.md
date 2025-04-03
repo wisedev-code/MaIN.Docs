@@ -90,6 +90,28 @@ chatContext.WithFiles(files);
 
 ---
 
+## **WithFiles(List<FileStream> fileStreams)**
+
+**Purpose**:  
+Attaches files to the most recent message in the chat. Files are associated with the last message to provide additional context or media for the AI to process.
+
+**Usage**:
+
+```csharp
+ FileStream fs = new FileStream(
+                    "./documents/file.pdf",
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.Read);
+
+chatContext.WithFiles([fs]);
+```
+
+**Parameters**:  
+- `files`: A list of `FileStream` objects representing the files to attach.
+
+---
+
 ## **WithFiles(List<string> filePaths)**
 
 **Purpose**:  

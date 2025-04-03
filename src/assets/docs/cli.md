@@ -7,6 +7,7 @@ The MaIN CLI (`mcli`) is your companion tool for managing AI workflows and servi
 
 ### (Windows)
 > **Requires Administrator privileges**  
+> You might need to run `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned`
 > The installer will:
 > - Create `%LOCALAPPDATA%\MaIN\CLI` directory
 > - Add `mcli` to system PATH
