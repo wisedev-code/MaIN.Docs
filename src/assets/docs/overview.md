@@ -1,6 +1,7 @@
 
 # 🤖 MaIN (Modular Artificial Intelligence Network) 
 
+### Github: https://github.com/wisedev-code/MaIN.NET 
 ## Overview
 MaIN (M.A.I.N) is a .NET package designed to simplify the integration and usage of Large Language Models (LLMs) in .NET applications. It provides a modular and highly configurable framework to work with AI models, focusing primarily on local execution while also offering cloud connectivity options.
 
