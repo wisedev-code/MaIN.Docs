@@ -410,11 +410,28 @@ AgentContext existingAgentContext = await AgentContext.FromExisting(agentService
 - A new `AgentContext` instance associated with the existing agent.
 
 ---
-
 ## **WithInferenceParams(InferenceParams inferenceParams)**
 
 **Purpose**:  
-Sets the inference parameters for the agent, allowing you to customize how the agent processes and generates responses based on specific parameters. Inference parameters can influence various aspects of the agent's behavior, such as response length, temperature, and other model-specific settings.
+Sets the inference parameters for the chat session, allowing you to customize how the AI processes and generates responses based on specific parameters. Inference parameters can influence various aspects of the chat, such as response length, temperature, and other model-specific settings.
+
+# InferenceParams Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Temperature` | float | 0.8 | Controls randomness in generation. Higher values (e.g., 1.0) make output more random, lower values (e.g., 0.2) make it more focused and deterministic. |
+| `ContextSize` | int | 1024 | Maximum number of tokens that can be processed in a single inference operation. Defines the "memory" window for the model. |
+| `GpuLayerCount` | int | 30 | Number of model layers to run on GPU (vs CPU). Higher values use more GPU memory but improve performance. |
+| `SeqMax` | uint | 1 | Maximum number of sequences to generate. |
+| `BatchSize` | uint | 512 | Number of tokens processed simultaneously during inference. Higher values can improve throughput. |
+| `UBatchSize` | uint | 512 | Update batch size - number of tokens processed in a single update operation. |
+| `Embeddings` | bool | false | Whether to return token embeddings alongside generated text. |
+| `TypeK` | int | 0 | Type of key tensors to use in attention mechanism. 0 typically indicates default type. |
+| `TypeV` | int | 0 | Type of value tensors to use in attention mechanism. 0 typically indicates default type. |
+| `TokensKeep` | int | - | Number of tokens to retain from previous context when continuing generation. |
+| `MaxTokens` | int | -1 | Maximum number of tokens to generate. -1 typically means no specific limit beyond context size. |
+| `TopK` | int | 40 | Limits token selection to the K most likely next tokens. Helps control output quality. |
+| `TopP` | float | 0.9 | Nucleus sampling threshold. Selects from smallest set of tokens whose cumulative probability exceeds P. |
 
 **Usage**:
 
@@ -431,6 +448,40 @@ agentContext.WithInferenceParams(inferenceParams);
 - `inferenceParams`: An `InferenceParams` object that holds the parameters for inference, such as `Temperature`, `MaxTokens`, `TopP`, etc. These parameters control the generation behavior of the agent.
 
 **Returns**:  
+- The `AgentContext` instance to enable method chaining. This allows further configurations or operations to be applied to the same agent context.
+
+---
+
+## WithMemoryParams(MemoryParams memoryParams)
+
+**Purpose**:
+Sets the memory parameters for the chat session, allowing you to customize how the AI accesses and utilizes its memory for generating responses. Memory parameters influence aspects such as context size, memory search depth, and token allocation for responses.
+
+**# MemoryParams Properties**
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `ContextSize` | int | 2048 | Maximum number of tokens that can be processed in the memory context window. Defines how much "memory" the model can access. |
+| `GpuLayerCount` | int | 30 | Number of memory-related model layers to run on GPU (vs CPU). Higher values use more GPU memory but improve performance. |
+| `MaxMatchesCount` | int | 5 | Maximum number of memory matches to retrieve when generating a response. Controls how many relevant memories are considered. |
+| `FrequencyPenalty` | float | 1.0 | Reduces the likelihood of repetition in responses. Higher values discourage repeating the same content. |
+| `Temperature` | float | 0.6 | Controls randomness in memory-based generation. Higher values produce more diverse responses, lower values more focused ones. |
+| `AnswerTokens` | int | 500 | Maximum number of tokens reserved for the response. If the model supports 5000 tokens and AnswerTokens is 500, the prompt (including question and grounding information) will be limited to 4500 tokens. |
+
+**Usage**:
+```csharp
+MemoryParams memoryParams = new MemoryParams
+{
+    ContextSize = 4096,
+    MaxMatchesCount = 10,
+    AnswerTokens = 800
+};
+agentContext.WithMemoryParams(memoryParams);
+```
+
+**Parameters**:
+- `memoryParams`: A `MemoryParams` object that holds the parameters for memory management, such as `ContextSize`, `MaxMatchesCount`, `AnswerTokens`, etc. These parameters control how agent utilizes memory for response generation.
+
+**Returns**:
 - The `AgentContext` instance to enable method chaining. This allows further configurations or operations to be applied to the same agent context.
 
 ---

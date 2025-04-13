@@ -10,6 +10,9 @@ dotnet add package MaIN.NET
 
 ## Basic Setup
 
+### (🌟) For CUDA Use
+If you are using the CUDA backend (operating on your NVIDIA GPU), install the CUDA Toolkit for your operating system. This can significantly improve performance.
+
 ### 1. Initialize MaIN
 
 Start with these essential service registrations:
