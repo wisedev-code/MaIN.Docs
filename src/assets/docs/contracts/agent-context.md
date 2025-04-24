@@ -78,6 +78,25 @@ agentContext.WithOrder(1);
 
 ---
 
+## **WithBackend(BackendType backendType)**
+
+**Purpose**:  
+Defines backend that will be used for model inference
+
+**Usage**:
+
+```csharp
+agentContext.WithBackend(BackendType.OpenAi)
+```
+
+**Parameters**:  
+- `backendType`: An enum that defines which Ai backend to use, Default uses .Self (LLamaSharp backend), ATM available options are: OpenAi, Self
+
+**Returns**:  
+- The `AgentContext` instance to enable method chaining.
+
+---
+
 ## **WithSource(IAgentSource source, AgentSourceType type)**
 
 **Purpose**:  

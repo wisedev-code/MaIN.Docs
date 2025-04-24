@@ -69,6 +69,10 @@
             "path": "examples/example-agent-redirect-img"
           },
           {
+            "title": "Multi Backend Agent",
+            "path": "examples/multi-backend-agent-redirect"
+          },
+          {
             "title": "Agent data source",
             "path": "examples/example-agent-source"
           },
