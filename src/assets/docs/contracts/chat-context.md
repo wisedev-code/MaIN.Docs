@@ -73,7 +73,7 @@ chatContext.WithSystemPrompt("You are a helpful assistant.");
 
 ---
 
-## **WithFiles(List<FileInfo> files)**
+## **WithFiles(List<FileInfo> files, preProcess = false)**
 
 **Purpose**:  
 Attaches files to the most recent message in the chat. Files are associated with the last message to provide additional context or media for the AI to process.
@@ -87,10 +87,11 @@ chatContext.WithFiles(files);
 
 **Parameters**:  
 - `files`: A list of `FileInfo` objects representing the files to attach.
+- `preProcess`: Include preprocessing of document, that can consume more time and resources, but can also greatly improve quality of inference
 
 ---
 
-## **WithFiles(List<FileStream> fileStreams)**
+## **WithFiles(List<FileStream> fileStreams, bool preProcess = false)**
 
 **Purpose**:  
 Attaches files to the most recent message in the chat. Files are associated with the last message to provide additional context or media for the AI to process.
@@ -104,15 +105,17 @@ Attaches files to the most recent message in the chat. Files are associated with
                     FileAccess.Read,
                     FileShare.Read);
 
-chatContext.WithFiles([fs]);
+chatContext.WithFiles([fs], preProcess: true);
 ```
 
 **Parameters**:  
 - `files`: A list of `FileStream` objects representing the files to attach.
+- `preProcess`: Include preprocessing of document, that can consume more time and resources, but can also greatly improve quality of inference
+
 
 ---
 
-## **WithFiles(List<string> filePaths)**
+## **WithFiles(List<string> filePaths, preProcess = false)**
 
 **Purpose**:  
 Attaches a list of files to the most recent message in the chat by specifying their file paths. This method is an alternative to using `FileInfo`.
@@ -125,6 +128,25 @@ chatContext.WithFiles(new List<string> { "./documents/file.pdf", "./images/photo
 
 **Parameters**:  
 - `filePaths`: A list of file paths to attach to the most recent message.
+- `preProcess`: Include preprocessing of document, that can consume more time and resources, but can also greatly improve quality of inference
+
+
+---
+
+
+## **WithBackend(BackendType backendType)**
+
+**Purpose**:  
+Defines backend that will be used for model inference
+
+**Usage**:
+
+```csharp
+chatContext.WithBackend(BackendType.OpenAi)
+```
+
+**Parameters**:  
+- `backendType`: An enum that defines which Ai backend to use, Default uses .Self (LLamaSharp backend), ATM available options are: OpenAi, Self
 
 ---
 
