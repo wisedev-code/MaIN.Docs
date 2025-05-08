@@ -97,15 +97,15 @@ agentContext.WithBackend(BackendType.OpenAi)
 
 ---
 
-## **WithCache()**
+## **DisableCache()**
 
 **Purpose**:  
-By default each agentContext gets disposed when Process/ProcessAsync is done, therefore future interference takes longer, setting this allows to cache model weights which can greatly improve performance. (Usage only make sense when local models are in use)
+Each time we run inference we need to load model into memory, this takes time and memory. This method allows us to save some more of GPU/RAM resources with cost of time, because model weights are no longer cached
 
 **Usage**:
 
 ```csharp
-agentContext.WithCache()
+agentContext.DisableCache()
 ```
 
 **Parameters**:  
