@@ -150,6 +150,22 @@ chatContext.WithBackend(BackendType.OpenAi)
 
 ---
 
+## **DisableCache()**
+
+**Purpose**:  
+Each time we run inference we need to load model into memory, this takes time and memory. This method allows us to save some more of GPU/RAM resources with cost of time, because model weights are no longer cached
+
+**Usage**:
+
+```csharp
+chatContext.DisableCache()
+```
+
+**Parameters**:  
+(nothing to see here ;p)
+
+---
+
 ## **EnableVisual()**
 
 **Purpose**:  
