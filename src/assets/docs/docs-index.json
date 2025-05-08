@@ -61,6 +61,10 @@
             "path": "examples/example-agent-basic"
           },
           {
+            "title": "Agent conversation",
+            "path": "examples/example-agent-conversation"
+          },
+          {
             "title": "Agent redirect",
             "path": "examples/example-agent-redirect"
           },
@@ -132,6 +136,10 @@
           {
             "title": "FlowContext",
             "path": "contracts/flow-context"
+          },
+          {
+            "title": "Extensions",
+            "path": "contracts/extensions"
           }
         ]
       }

@@ -150,6 +150,22 @@ chatContext.WithBackend(BackendType.OpenAi)
 
 ---
 
+## **WithCache()**
+
+**Purpose**:  
+By default each chatContext gets disposed when CompleteAsync is done, therefore future interference takes longer, setting this allows to cache model weights which can greatly improve performance. (Usage only make sense when local models are in use)
+
+**Usage**:
+
+```csharp
+chatContext.WithCache()
+```
+
+**Parameters**:  
+(nothing to see here ;p)
+
+---
+
 ## **EnableVisual()**
 
 **Purpose**:  

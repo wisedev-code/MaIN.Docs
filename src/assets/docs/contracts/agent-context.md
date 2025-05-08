@@ -97,6 +97,22 @@ agentContext.WithBackend(BackendType.OpenAi)
 
 ---
 
+## **WithCache()**
+
+**Purpose**:  
+By default each agentContext gets disposed when Process/ProcessAsync is done, therefore future interference takes longer, setting this allows to cache model weights which can greatly improve performance. (Usage only make sense when local models are in use)
+
+**Usage**:
+
+```csharp
+agentContext.WithCache()
+```
+
+**Parameters**:  
+(nothing to see here ;p)
+
+---
+
 ## **WithSource(IAgentSource source, AgentSourceType type)**
 
 **Purpose**:  
