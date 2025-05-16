@@ -90,7 +90,7 @@ agentContext.WithBackend(BackendType.OpenAi)
 ```
 
 **Parameters**:  
-- `backendType`: An enum that defines which Ai backend to use, Default uses .Self (LLamaSharp backend), ATM available options are: OpenAi, Self
+- `backendType`: An enum that defines which Ai backend to use, Default uses .Self (LLamaSharp backend), ATM available options are: OpenAi, Gemini, Self
 
 **Returns**:  
 - The `AgentContext` instance to enable method chaining.

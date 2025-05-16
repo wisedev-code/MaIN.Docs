@@ -116,7 +116,24 @@
                     "title": "Agent with Web source",
                     "path": "examples/example-agent-source-openai"
                   }
-                  ]}
+                  ]},
+      {
+        "title": "Gemini Integration",
+        "children": [
+          {
+            "title": "Basic chat",
+            "path": "examples/example-chat-basic-gemini"
+          },
+          {
+            "title": "Chat with image",
+            "path": "examples/example-chat-image-gemini"
+          },
+          {
+            "title": "Chat with files",
+            "path": "examples/example-chat-files-gemini"
+          }
+        ]
+      }
     ]
   },
   {
@@ -151,6 +168,10 @@
       {
         "title": "OpenAi",
         "path": "integrations/openai"
+      },
+      {
+        "title": "Gemini",
+        "path": "integrations/gemini"
       }
     ]
   }
