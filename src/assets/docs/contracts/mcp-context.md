@@ -119,6 +119,8 @@ This method requires that a valid MCP configuration has been established before 
 
 ### **Usage Examples:**
 
+**Usage Examples:**
+
 **Creating an MCP Configuration**:
 
 ```csharp
@@ -138,7 +140,7 @@ var mcpConfig = new Mcp
 
 ```csharp
 // Configure MCP context with custom configuration
-var mcpContext = new McpContext(mcpService)
+mcpContext
     .WithConfig(mcpConfig)
     .WithBackend(BackendType.Claude);
 
@@ -150,7 +152,7 @@ var result = await mcpContext.PromptAsync("Analyze this data set");
 
 ```csharp
 // Start with default configuration and modify as needed
-var mcpContext = new McpContext(mcpService)
+mcpContext
     .WithConfig(Mcp.NotSet)
     .WithBackend(BackendType.Self);
 ```
@@ -159,7 +161,7 @@ var mcpContext = new McpContext(mcpService)
 
 ```csharp
 // Method chaining for clean configuration
-var result = await new McpContext(mcpService)
+var result = await mcpContext
     .WithConfig(serverConfig)
     .WithBackend(BackendType.OpenAI)
     .PromptAsync("Generate a summary report");
