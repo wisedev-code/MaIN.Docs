@@ -78,6 +78,41 @@ agentContext.WithOrder(1);
 
 ---
 
+## **WithBackend(BackendType backendType)**
+
+**Purpose**:  
+Defines backend that will be used for model inference
+
+**Usage**:
+
+```csharp
+agentContext.WithBackend(BackendType.OpenAi)
+```
+
+**Parameters**:  
+- `backendType`: An enum that defines which Ai backend to use, Default uses .Self (LLamaSharp backend), ATM available options are: OpenAi, Gemini, Self
+
+**Returns**:  
+- The `AgentContext` instance to enable method chaining.
+
+---
+
+## **DisableCache()**
+
+**Purpose**:  
+Each time we run inference we need to load model into memory, this takes time and memory. This method allows us to save some more of GPU/RAM resources with cost of time, because model weights are no longer cached
+
+**Usage**:
+
+```csharp
+agentContext.DisableCache()
+```
+
+**Parameters**:  
+(nothing to see here ;p)
+
+---
+
 ## **WithSource(IAgentSource source, AgentSourceType type)**
 
 **Purpose**:  
@@ -466,6 +501,7 @@ Sets the memory parameters for the chat session, allowing you to customize how t
 | `FrequencyPenalty` | float | 1.0 | Reduces the likelihood of repetition in responses. Higher values discourage repeating the same content. |
 | `Temperature` | float | 0.6 | Controls randomness in memory-based generation. Higher values produce more diverse responses, lower values more focused ones. |
 | `AnswerTokens` | int | 500 | Maximum number of tokens reserved for the response. If the model supports 5000 tokens and AnswerTokens is 500, the prompt (including question and grounding information) will be limited to 4500 tokens. |
+| `MultiModalMode` | bool | false | If set to true, model used for text generation will also be used for embedding generation (Nomic model is not required if MultiModal is true) |
 
 **Usage**:
 ```csharp

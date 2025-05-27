@@ -73,7 +73,7 @@ chatContext.WithSystemPrompt("You are a helpful assistant.");
 
 ---
 
-## **WithFiles(List<FileInfo> files)**
+## **WithFiles(List<FileInfo> files, preProcess = false)**
 
 **Purpose**:  
 Attaches files to the most recent message in the chat. Files are associated with the last message to provide additional context or media for the AI to process.
@@ -87,10 +87,11 @@ chatContext.WithFiles(files);
 
 **Parameters**:  
 - `files`: A list of `FileInfo` objects representing the files to attach.
+- `preProcess`: Include preprocessing of document, that can consume more time and resources, but can also greatly improve quality of inference
 
 ---
 
-## **WithFiles(List<FileStream> fileStreams)**
+## **WithFiles(List<FileStream> fileStreams, bool preProcess = false)**
 
 **Purpose**:  
 Attaches files to the most recent message in the chat. Files are associated with the last message to provide additional context or media for the AI to process.
@@ -104,15 +105,17 @@ Attaches files to the most recent message in the chat. Files are associated with
                     FileAccess.Read,
                     FileShare.Read);
 
-chatContext.WithFiles([fs]);
+chatContext.WithFiles([fs], preProcess: true);
 ```
 
 **Parameters**:  
 - `files`: A list of `FileStream` objects representing the files to attach.
+- `preProcess`: Include preprocessing of document, that can consume more time and resources, but can also greatly improve quality of inference
+
 
 ---
 
-## **WithFiles(List<string> filePaths)**
+## **WithFiles(List<string> filePaths, preProcess = false)**
 
 **Purpose**:  
 Attaches a list of files to the most recent message in the chat by specifying their file paths. This method is an alternative to using `FileInfo`.
@@ -125,6 +128,41 @@ chatContext.WithFiles(new List<string> { "./documents/file.pdf", "./images/photo
 
 **Parameters**:  
 - `filePaths`: A list of file paths to attach to the most recent message.
+- `preProcess`: Include preprocessing of document, that can consume more time and resources, but can also greatly improve quality of inference
+
+
+---
+
+
+## **WithBackend(BackendType backendType)**
+
+**Purpose**:  
+Defines backend that will be used for model inference
+
+**Usage**:
+
+```csharp
+chatContext.WithBackend(BackendType.OpenAi)
+```
+
+**Parameters**:  
+- `backendType`: An enum that defines which Ai backend to use, Default uses .Self (LLamaSharp backend), ATM available options are: OpenAi, Gemini, Self
+
+---
+
+## **DisableCache()**
+
+**Purpose**:  
+Each time we run inference we need to load model into memory, this takes time and memory. This method allows us to save some more of GPU/RAM resources with cost of time, because model weights are no longer cached
+
+**Usage**:
+
+```csharp
+chatContext.DisableCache()
+```
+
+**Parameters**:  
+(nothing to see here ;p)
 
 ---
 
@@ -321,6 +359,7 @@ Sets the memory parameters for the chat session, allowing you to customize how t
 | `FrequencyPenalty` | float | 1.0 | Reduces the likelihood of repetition in responses. Higher values discourage repeating the same content. |
 | `Temperature` | float | 0.6 | Controls randomness in memory-based generation. Higher values produce more diverse responses, lower values more focused ones. |
 | `AnswerTokens` | int | 500 | Maximum number of tokens reserved for the response. If the model supports 5000 tokens and AnswerTokens is 500, the prompt (including question and grounding information) will be limited to 4500 tokens. |
+| `MultiModalMode` | bool | false | If set to true, model used for text generation will also be used for embedding generation (Nomic model is not required if MultiModal is true) |
 
 **Usage**:
 ```csharp
