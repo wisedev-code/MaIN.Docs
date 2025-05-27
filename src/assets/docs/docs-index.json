@@ -27,6 +27,18 @@
         "path": "examples/example-runner"
       },
       {
+        "title": "Mcp",
+        "children": [
+      {
+        "title": "Basic mcp",
+        "path": "examples/example-mcp-basic"
+      },
+      {
+        "title": "Mcp agent",
+        "path": "examples/example-agent-mcp"
+      }
+      ]},
+      {
         "title": "Chat",
         "children": [
       {
@@ -117,6 +129,10 @@
       {
         "title": "Contracts",
         "children": [
+          {
+            "title": "McpContext",
+            "path": "contracts/mcp-context"
+          },
           {
             "title": "ChatContext",
             "path": "contracts/chat-context"
