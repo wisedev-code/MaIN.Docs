@@ -159,6 +159,10 @@
             "path": "contracts/mcp-context"
           },
           {
+            "title": "ModelContext",
+            "path": "contracts/model-context"
+          },
+          {
             "title": "ChatContext",
             "path": "contracts/chat-context"
           },
