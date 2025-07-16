@@ -145,6 +145,15 @@
             "path": "examples/example-chat-files-gemini"
           }
         ]
+      },
+      {
+        "title": "DeepSeek Integration",
+        "children": [
+          {
+            "title": "Chat with Reasoning",
+            "path": "examples/example-chat-reasoning-deepseek"
+          }
+        ]
       }
     ]
   },
@@ -192,6 +201,10 @@
       {
         "title": "Gemini",
         "path": "integrations/gemini"
+      },
+      {
+        "title": "DeepSeek",
+        "path": "integrations/deepseek"
       }
     ]
   }
