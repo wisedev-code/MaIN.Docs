@@ -79,7 +79,7 @@ Once you configure DeepSeek as the backend, **everything in the MaIN framework w
 
 - **No additional configuration is required** to use DeepSeek with any MaIN-based feature.
 - Whether you're interacting with chat models, agents, or external data sources, the behavior remains consistent.
-- The integration allows MaIN to work seamlessly with Gemini, enabling you to use the full power of the framework without worrying about backend-specific configurations.
+- The integration allows MaIN to work seamlessly with DeepSeek, enabling you to use the full power of the framework without worrying about backend-specific configurations.
 
 ---
 

@@ -25,4 +25,4 @@ public async Task Start()
 4. **Send a message** → `.WithMessage("Is the killer whale the smartest animal?")`
 5. **Run the chat** → `.CompleteAsync(interactive: true);`
 
-This example demonstrates how effortlessly Gemini's Gemini's 2.0-flash model can be integrated into the framework, enabling seamless interactions with just a few lines of code. The simplicity of setup and ease of use makes it ideal for developers looking to integrate powerful AI capabilities with minimal configuration.
+This example demonstrates how effortlessly Gemini's 2.0-flash model can be integrated into the framework, enabling seamless interactions with just a few lines of code. The simplicity of setup and ease of use makes it ideal for developers looking to integrate powerful AI capabilities with minimal configuration.
