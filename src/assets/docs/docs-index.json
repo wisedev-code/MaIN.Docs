@@ -154,6 +154,15 @@
             "path": "examples/example-chat-reasoning-deepseek"
           }
         ]
+      },
+      {
+        "title": "GroqCloud Integration",
+        "children": [
+          {
+            "title": "Basic chat",
+            "path": "examples/example-chat-basic-groqcloud"
+          }
+        ]
       }
     ]
   },
@@ -205,6 +214,10 @@
       {
         "title": "DeepSeek",
         "path": "integrations/deepseek"
+      },
+      {
+        "title": "GroqCloud",
+        "path": "integrations/groqcloud"
       }
     ]
   }
