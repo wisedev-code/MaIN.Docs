@@ -53,3 +53,5 @@ public class ChatWithTextToSpeechExample : IExample
 - Kokoro model and voices downloaded
 - Any audio device present
 - MaIN.NET framework properly configured
+
+*This feature as well as parts of TTS code were heavily inspired by Lyrcaxis project called <a href="https://github.com/Lyrcaxis/KokoroSharp">KokoroSharp</a>. Please check their work and give them a ⭐
