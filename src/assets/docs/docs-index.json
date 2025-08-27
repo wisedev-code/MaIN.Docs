@@ -1,106 +1,110 @@
 [
-  {
-    "title": "Overview",
-    "path": "overview"
-  },
-  {
-    "title": "How to start",
-    "path": "how-to"
-  },
-  {
-    "title": "MaIN CLI",
-    "path": "cli"
-  },
-  {
-    "title": "Configuration",
-    "path": "settings"
-  },
-  {
-    "title": "Tutorial",
-    "path": "tutorial"
-  },
-  {
-    "title": "Examples",
-    "children": [
-      {
-        "title": "Example runner",
-        "path": "examples/example-runner"
-      },
-      {
-        "title": "Mcp",
-        "children": [
-      {
-        "title": "Basic mcp",
-        "path": "examples/example-mcp-basic"
-      },
-      {
-        "title": "Mcp agent",
-        "path": "examples/example-agent-mcp"
-      }
-      ]},
-      {
-        "title": "Chat",
-        "children": [
-      {
-        "title": "Basic chat",
-        "path": "examples/example-chat-basic"
-      },
-      {
-        "title": "Chat existing",
-        "path": "examples/example-chat-existing"
-      },
-      {
-        "title": "Chat with reasoning",
-        "path": "examples/example-chat-reasoning"
-      },
-      {
-        "title": "Chat with files",
-        "path": "examples/example-chat-files"
-      },
-      {
-        "title": "Chat with image-gen",
-        "path": "examples/example-chat-image"
-      },
-      {
-        "title": "Chat with vision",
-        "path": "examples/example-chat-vision"
-      }]},
-      {
-        "title": "Agent",
-        "children": [
-          {
-            "title": "Basic agent",
-            "path": "examples/example-agent-basic"
-          },
-          {
-            "title": "Agent conversation",
-            "path": "examples/example-agent-conversation"
-          },
-          {
-            "title": "Agent redirect",
-            "path": "examples/example-agent-redirect"
-          },
-          {
-            "title": "Agent redirect img",
-            "path": "examples/example-agent-redirect-img"
-          },
-          {
-            "title": "Multi Backend Agent",
-            "path": "examples/multi-backend-agent-redirect"
-          },
-          {
-            "title": "Agent data source",
-            "path": "examples/example-agent-source"
-          },
-          {
-            "title": "Agent become",
-            "path": "examples/example-agent-become"
-          },
-          {
-            "title": "Two agents talking",
-            "path": "examples/example-agent-talking"
-          }
-          ]},
+   {
+      "title":"Overview",
+      "path":"overview"
+   },
+   {
+      "title":"How to start",
+      "path":"how-to"
+   },
+   {
+      "title":"MaIN CLI",
+      "path":"cli"
+   },
+   {
+      "title":"Configuration",
+      "path":"settings"
+   },
+   {
+      "title":"Tutorial",
+      "path":"tutorial"
+   },
+   {
+      "title":"Examples",
+      "children":[
+         {
+            "title":"Example runner",
+            "path":"examples/example-runner"
+         },
+         {
+            "title":"Mcp",
+            "children":[
+               {
+                  "title":"Basic mcp",
+                  "path":"examples/example-mcp-basic"
+               },
+               {
+                  "title":"Mcp agent",
+                  "path":"examples/example-agent-mcp"
+               }
+            ]
+         },
+         {
+            "title":"Chat",
+            "children":[
+               {
+                  "title":"Basic chat",
+                  "path":"examples/example-chat-basic"
+               },
+               {
+                  "title":"Chat existing",
+                  "path":"examples/example-chat-existing"
+               },
+               {
+                  "title":"Chat with reasoning",
+                  "path":"examples/example-chat-reasoning"
+               },
+               {
+                  "title":"Chat with files",
+                  "path":"examples/example-chat-files"
+               },
+               {
+                  "title":"Chat with image-gen",
+                  "path":"examples/example-chat-image"
+               },
+               {
+                  "title":"Chat with vision",
+                  "path":"examples/example-chat-vision"
+               }
+            ]
+         },
+         {
+            "title":"Agent",
+            "children":[
+               {
+                  "title":"Basic agent",
+                  "path":"examples/example-agent-basic"
+               },
+               {
+                  "title":"Agent conversation",
+                  "path":"examples/example-agent-conversation"
+               },
+               {
+                  "title":"Agent redirect",
+                  "path":"examples/example-agent-redirect"
+               },
+               {
+                  "title":"Agent redirect img",
+                  "path":"examples/example-agent-redirect-img"
+               },
+               {
+                  "title":"Multi Backend Agent",
+                  "path":"examples/multi-backend-agent-redirect"
+               },
+               {
+                  "title":"Agent data source",
+                  "path":"examples/example-agent-source"
+               },
+               {
+                  "title":"Agent become",
+                  "path":"examples/example-agent-become"
+               },
+               {
+                  "title":"Two agents talking",
+                  "path":"examples/example-agent-talking"
+               }
+            ]
+         },
           {
             "title": "Knowledge base",
             "children": [
@@ -121,124 +125,136 @@
                 "path": "examples/example-agent-knowledge-mcp"
               }
               ]},
-          {
-            "title": "Flow",
-            "children": [
-              {
-                "title": "Agents as flow",
-                "path": "examples/example-agent-flow"
-              },
-              {
-                "title": "Flow loaded",
-                "path": "examples/example-agent-load-flow"
-              }
-              ]},
-              {
-                "title": "OpenAi Integration",
-                "children": [
-                  {
-                    "title": "Basic chat",
-                    "path": "examples/example-chat-basic-openai"
-                  },
-                  {
-                    "title": "Chat with image",
-                    "path": "examples/example-chat-image-openai"
-                  },
-                  {
-                    "title": "Agent with Web source",
-                    "path": "examples/example-agent-source-openai"
-                  }
-                  ]},
-      {
-        "title": "Gemini Integration",
-        "children": [
-          {
-            "title": "Basic chat",
-            "path": "examples/example-chat-basic-gemini"
-          },
-          {
-            "title": "Chat with image",
-            "path": "examples/example-chat-image-gemini"
-          },
-          {
-            "title": "Chat with files",
-            "path": "examples/example-chat-files-gemini"
-          }
-        ]
-      },
-      {
-        "title": "DeepSeek Integration",
-        "children": [
-          {
-            "title": "Chat with Reasoning",
-            "path": "examples/example-chat-reasoning-deepseek"
-          }
-        ]
-      },
-      {
-        "title": "GroqCloud Integration",
-        "children": [
-          {
-            "title": "Basic chat",
-            "path": "examples/example-chat-basic-groqcloud"
-          }
-        ]
-      }
-    ]
-  },
-  {
-    "title": "Framework",
-    "children": [
-      {
-        "title": "Contracts",
-        "children": [
-          {
-            "title": "McpContext",
-            "path": "contracts/mcp-context"
-          },
-          {
-            "title": "ModelContext",
-            "path": "contracts/model-context"
-          },
-          {
-            "title": "ChatContext",
-            "path": "contracts/chat-context"
-          },
-          {
-            "title": "AgentContext",
-            "path": "contracts/agent-context"
-          },
-          {
-            "title": "FlowContext",
-            "path": "contracts/flow-context"
-          },
-          {
-            "title": "Extensions",
-            "path": "contracts/extensions"
-          }
-        ]
-      }
-    ]
-  },
-  {
-    "title": "Integrations",
-    "children": [
-      {
-        "title": "OpenAi",
-        "path": "integrations/openai"
-      },
-      {
-        "title": "Gemini",
-        "path": "integrations/gemini"
-      },
-      {
-        "title": "DeepSeek",
-        "path": "integrations/deepseek"
-      },
-      {
-        "title": "GroqCloud",
-        "path": "integrations/groqcloud"
-      }
-    ]
-  }
+         {
+            "title":"Flow",
+            "children":[
+               {
+                  "title":"Agents as flow",
+                  "path":"examples/example-agent-flow"
+               },
+               {
+                  "title":"Flow loaded",
+                  "path":"examples/example-agent-load-flow"
+               }
+            ]
+         },
+         {
+          "title":"TTS",
+          "children":[
+             {
+                "title":"Text to Speech example",
+                "path":"examples/example-text-to-speech"
+             }
+          ]
+
+         },
+         {
+            "title":"OpenAi Integration",
+            "children":[
+               {
+                  "title":"Basic chat",
+                  "path":"examples/example-chat-basic-openai"
+               },
+               {
+                  "title":"Chat with image",
+                  "path":"examples/example-chat-image-openai"
+               },
+               {
+                  "title":"Agent with Web source",
+                  "path":"examples/example-agent-source-openai"
+               }
+            ]
+         },
+         {
+            "title":"Gemini Integration",
+            "children":[
+               {
+                  "title":"Basic chat",
+                  "path":"examples/example-chat-basic-gemini"
+               },
+               {
+                  "title":"Chat with image",
+                  "path":"examples/example-chat-image-gemini"
+               },
+               {
+                  "title":"Chat with files",
+                  "path":"examples/example-chat-files-gemini"
+               }
+            ]
+         },
+         {
+            "title":"DeepSeek Integration",
+            "children":[
+               {
+                  "title":"Chat with Reasoning",
+                  "path":"examples/example-chat-reasoning-deepseek"
+               }
+            ]
+         },
+         {
+            "title":"GroqCloud Integration",
+            "children":[
+               {
+                  "title":"Basic chat",
+                  "path":"examples/example-chat-basic-groqcloud"
+               }
+            ]
+         }
+      ]
+   },
+   {
+      "title":"Framework",
+      "children":[
+         {
+            "title":"Contracts",
+            "children":[
+               {
+                  "title":"McpContext",
+                  "path":"contracts/mcp-context"
+               },
+               {
+                  "title":"ModelContext",
+                  "path":"contracts/model-context"
+               },
+               {
+                  "title":"ChatContext",
+                  "path":"contracts/chat-context"
+               },
+               {
+                  "title":"AgentContext",
+                  "path":"contracts/agent-context"
+               },
+               {
+                  "title":"FlowContext",
+                  "path":"contracts/flow-context"
+               },
+               {
+                  "title":"Extensions",
+                  "path":"contracts/extensions"
+               }
+            ]
+         }
+      ]
+   },
+   {
+      "title":"Integrations",
+      "children":[
+         {
+            "title":"OpenAi",
+            "path":"integrations/openai"
+         },
+         {
+            "title":"Gemini",
+            "path":"integrations/gemini"
+         },
+         {
+            "title":"DeepSeek",
+            "path":"integrations/deepseek"
+         },
+         {
+            "title":"GroqCloud",
+            "path":"integrations/groqcloud"
+         }
+      ]
+   }
 ]
