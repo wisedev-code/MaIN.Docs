@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The Knowledge Base feature in MaIN.NET 0.4.1 enables agents to access and utilize external information sources intelligently. This feature allows agents to provide accurate, context-aware responses by leveraging persisted knowledge from files, web sources, and MCP (Model Context Protocol) servers.
+The Knowledge Base feature in MaIN.NET 0.5.0 enables agents to access and utilize external information sources intelligently. This feature allows agents to provide accurate, context-aware responses by leveraging persisted knowledge from files, web sources, and MCP (Model Context Protocol) servers.
 
 ## How Knowledge Base Works
 
