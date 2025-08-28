@@ -199,6 +199,15 @@
                   "path":"examples/example-chat-basic-groqcloud"
                }
             ]
+         },
+         {
+            "title":"Anthropic Integration",
+            "children":[
+               {
+                  "title":"Basic chat",
+                  "path":"examples/example-chat-basic-anthropic"
+               }
+            ]
          }
       ]
    },
@@ -254,6 +263,10 @@
          {
             "title":"GroqCloud",
             "path":"integrations/groqcloud"
+         },
+         {
+            "title":"Anthropy",
+            "path":"integrations/anthropy"
          }
       ]
    }
