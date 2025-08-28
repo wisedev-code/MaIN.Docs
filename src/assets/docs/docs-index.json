@@ -105,6 +105,26 @@
                }
             ]
          },
+          {
+            "title": "Knowledge base",
+            "children": [
+              {
+                "title": "Overview",
+                "path": "examples/agent-knowledge-overview"
+              },
+              {
+                "title": "With File source",
+                "path": "examples/example-agent-knowledge-file"
+              },
+              {
+                "title": "With Web source",
+                "path": "examples/example-agent-knowledge-web"
+              },
+              {
+                "title": "With Mcp source",
+                "path": "examples/example-agent-knowledge-mcp"
+              }
+              ]},
          {
             "title":"Flow",
             "children":[
