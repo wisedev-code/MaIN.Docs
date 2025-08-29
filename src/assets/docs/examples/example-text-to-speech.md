@@ -5,7 +5,7 @@ This example demonstrates how to use the TextToSpeech feature of MaIN.NET. In th
 ## 🚀 Quick Start
 
 To run the example you need the Kokoro TTS model downloaded. The model must be in <b>ONNX</b> format. 
-<br>It can be acquired here: <a href="https://github.com/taylorchu/kokoro-onnx/releases/download/v0.2.0/kokoro.onnx">GET KOKORO</a>. <br>Voices can be downloaded from original Kokoro repository on HuggingFace <a href="https://huggingface.co/hexgrad/Kokoro-82M/tree/main/voices">GET VOICES</a>.
+<br>It can be acquired here: <a href="https://github.com/taylorchu/kokoro-onnx/releases/download/v0.2.0/kokoro.onnx">GET KOKORO</a>. <br>Voices can be downloaded from original Kokoro repository on HuggingFace <a href="https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/tree/main/voices">GET VOICES</a>.
 <br>Model needs to be placed in set Models directory. Voices can be stored wherever but their path <b>MUST</b> be set in the example code.
 
 ⚠️⚠️⚠️ <b>IMPORTANT</b> ⚠️⚠️⚠️
