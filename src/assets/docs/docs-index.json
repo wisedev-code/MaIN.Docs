@@ -55,6 +55,10 @@
                   "path":"examples/example-chat-reasoning"
                },
                {
+                  "title":"Chat with tools (simple)",
+                  "path":"examples/example-chat-tools"
+               },
+               {
                   "title":"Chat with files",
                   "path":"examples/example-chat-files"
                },
@@ -90,6 +94,10 @@
                {
                   "title":"Multi Backend Agent",
                   "path":"examples/multi-backend-agent-redirect"
+               },
+               {
+                  "title":"Agent Tools (advanced))",
+                  "path":"examples/example-agent-tools"
                },
                {
                   "title":"Agent data source",
@@ -236,6 +244,14 @@
                {
                   "title":"FlowContext",
                   "path":"contracts/flow-context"
+               },
+               {
+                  "title":"StepBuilder",
+                  "path":"contracts/stepbuilder"
+               },
+               {
+                  "title":"ToolBuilder",
+                  "path":"contracts/toolbuilder"
                },
                {
                   "title":"Extensions",
