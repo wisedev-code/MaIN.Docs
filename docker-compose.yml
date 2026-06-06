@@ -6,10 +6,8 @@ services:
     environment:
       - ApiKey=${API_KEY}
       - DocsContentPath=/docs-content
-      - AllowedOrigins__0=http://localhost
+      - AllowedOrigins__0=http://localhost:8070
       - MaIN__OllamaKey=${OLLAMA_KEY}
-      - MaIN__OllamaBaseUrl=${OLLAMA_BASE_URL}
-      - MaIN__OpenAiKey=${OPENAI_KEY}
     volumes:
       - ./docs-content:/docs-content:ro
     expose:
@@ -22,6 +20,6 @@ services:
     environment:
       - API_KEY=${API_KEY}
     ports:
-      - "80:80"
+      - "8070:80"
     depends_on:
       - backend

@@ -1,10 +1,11 @@
 using MaIN.Core.Hub;
 using MaIN.Core.Hub.Contexts.Interfaces.AgentContext;
 using MaIN.Core.Hub.Utils;
+using MaIN.Domain.Configuration;
 using MaIN.Domain.Entities;
 using MaIN.Domain.Entities.Tools;
 using MaIN.Domain.Models;
-using DomainModels = MaIN.Domain.Models.Models;
+using MaIN.Domain.Models.Abstract;
 
 namespace MaIN.Docs.Api.Services;
 
@@ -13,15 +14,23 @@ public class DocsAgentOrchestrator(DocsLoader loader, ILogger<DocsAgentOrchestra
     private readonly Dictionary<string, IAgentContextExecutor> _agents = new();
     private readonly Dictionary<string, SemaphoreSlim> _locks = new();
 
+    private const string ModelCode   = "qwen3-coder-next:cloud";
+    private const string ModelDesign = "gemma4:31b-cloud";
+    private const string ModelReview = "gpt-oss:20b-cloud";
+
     public async Task InitializeAsync()
     {
+        ModelRegistry.RegisterOrReplace(new GenericCloudModel(ModelCode,   BackendType.Ollama, ModelCode));
+        ModelRegistry.RegisterOrReplace(new GenericCloudModel(ModelDesign, BackendType.Ollama, ModelDesign));
+        ModelRegistry.RegisterOrReplace(new GenericCloudModel(ModelReview, BackendType.Ollama, ModelReview));
+
         var docsPath = loader.DocsPath;
 
         var defs = new[]
         {
-            new AgentDef("code",   "Code",   DomainModels.Ollama.Llama4Scout,    CodeSystemPrompt,   CodeTools(docsPath)),
-            new AgentDef("design", "Design", DomainModels.Ollama.Gemma3_12b,     DesignSystemPrompt, DesignTools(docsPath)),
-            new AgentDef("review", "Review", DomainModels.OpenAi.Gpt4_1,         ReviewSystemPrompt, ReviewTools(docsPath)),
+            new AgentDef("code",   "Code",   ModelCode,   CodeSystemPrompt,   CodeTools(docsPath)),
+            new AgentDef("design", "Design", ModelDesign, DesignSystemPrompt, DesignTools(docsPath)),
+            new AgentDef("review", "Review", ModelReview, ReviewSystemPrompt, ReviewTools(docsPath)),
         };
 
         foreach (var def in defs)

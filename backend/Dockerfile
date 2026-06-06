@@ -9,13 +9,9 @@ RUN dotnet restore MaIN.Docs.Api/MaIN.Docs.Api.csproj
 
 COPY MaIN.Docs.Api/ MaIN.Docs.Api/
 RUN dotnet publish MaIN.Docs.Api/MaIN.Docs.Api.csproj \
-        -c Release -r linux-x64 --self-contained false \
-        -o /app --no-restore && \
-    find /app -name "*llama*" -delete && \
-    find /app -name "*ggml*" -delete && \
-    find /app -name "*mtmd*" -delete && \
-    find /app/runtimes -mindepth 1 -maxdepth 1 -type d -not -name "linux-x64" -exec rm -rf {} + && \
-    rm -f /app/Microsoft.KernelMemory.AI.LlamaSharp.dll
+        -c Release --self-contained false \
+        -o /app && \
+    rm -rf /app/runtimes
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
