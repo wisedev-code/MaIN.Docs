@@ -7,8 +7,8 @@ services:
       - ApiKey=${API_KEY}
       - DocsContentPath=/docs-content
       - AllowedOrigins__0=http://localhost
-      - MaIN__GroqCloudKey=${GROQ_KEY}
-      - MaIN__GeminiKey=${GEMINI_KEY}
+      - MaIN__OllamaKey=${OLLAMA_KEY}
+      - MaIN__OllamaBaseUrl=${OLLAMA_BASE_URL}
       - MaIN__OpenAiKey=${OPENAI_KEY}
     volumes:
       - ./docs-content:/docs-content:ro

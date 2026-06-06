@@ -19,8 +19,8 @@ public class DocsAgentOrchestrator(DocsLoader loader, ILogger<DocsAgentOrchestra
 
         var defs = new[]
         {
-            new AgentDef("code",   "Code",   DomainModels.Groq.Llama4Scout17b,  CodeSystemPrompt,   CodeTools(docsPath)),
-            new AgentDef("design", "Design", DomainModels.Gemini.Gemini3_5Flash, DesignSystemPrompt, DesignTools(docsPath)),
+            new AgentDef("code",   "Code",   DomainModels.Ollama.Llama4Scout,    CodeSystemPrompt,   CodeTools(docsPath)),
+            new AgentDef("design", "Design", DomainModels.Ollama.Gemma3_12b,     DesignSystemPrompt, DesignTools(docsPath)),
             new AgentDef("review", "Review", DomainModels.OpenAi.Gpt4_1,         ReviewSystemPrompt, ReviewTools(docsPath)),
         };
 
@@ -149,14 +149,14 @@ public class DocsAgentOrchestrator(DocsLoader loader, ILogger<DocsAgentOrchestra
             .WithMessage("...")
             .CompleteAsync(changeOfValue: async token => { /* stream token */ })
         - Agent (stateful with tools): AIHub.Agent()
-            .WithModel(Models.OpenAi.Gpt4_1)
+            .WithModel(Models.Ollama.Llama4Scout)
             .WithInitialPrompt("You are...")
             .WithTools(new ToolsConfigurationBuilder()...Build())
             .CreateAsync()
           followed by context.ProcessAsync(messages, tokenCallback: cb)
         - Flows: AIHub.Flow() for orchestrating multiple agents in sequence
-        - Model constants: Models.Groq.Llama4Scout17b, Models.OpenAi.Gpt4_1, Models.Gemini.Gemini3_5Flash,
-          Models.Anthropic.ClaudeOpus4_7
+        - Model constants: Models.Ollama.Llama4Scout, Models.Ollama.Gemma3_12b, Models.OpenAi.Gpt4_1,
+          Models.Gemini.Gemini3_5Flash, Models.Anthropic.ClaudeOpus4_7
         - Rate limiting + X-Api-Key middleware for production APIs
 
         Always include using statements. Prefer Minimal API (Program.cs) style.
