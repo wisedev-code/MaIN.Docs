@@ -1,0 +1,28 @@
+{
+  "sections": [
+    {
+      "title": "Getting Started",
+      "entries": [
+        { "slug": "getting-started", "title": "Introduction" },
+        { "slug": "installation",    "title": "Installation" },
+        { "slug": "quickstart",      "title": "Quick Start" }
+      ]
+    },
+    {
+      "title": "Core Concepts",
+      "entries": [
+        { "slug": "backends",  "title": "Backends" },
+        { "slug": "chat",      "title": "Chat" },
+        { "slug": "agents",    "title": "Agents" },
+        { "slug": "flows",     "title": "Flows" }
+      ]
+    },
+    {
+      "title": "Deployment",
+      "entries": [
+        { "slug": "docker",    "title": "Docker" },
+        { "slug": "inferpage", "title": "InferPage" }
+      ]
+    }
+  ]
+}

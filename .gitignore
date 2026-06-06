@@ -1,0 +1,16 @@
+# macOS
+.DS_Store
+
+# .NET build outputs
+**/bin/
+**/obj/
+
+# JetBrains IDE
+**/.idea/
+*.DotSettings.user
+
+# Node / Angular
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/cache/
+

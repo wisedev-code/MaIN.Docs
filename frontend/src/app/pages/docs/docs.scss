@@ -1,0 +1,190 @@
+.docs-layout {
+  display: flex;
+  min-height: 100vh;
+  padding-top: 56px;
+}
+
+// ── Sidebar ────────────────────────────────────────────
+.sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  position: fixed;
+  top: 56px;
+  left: 0;
+  bottom: 0;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  background: var(--bg-surface);
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 0;
+}
+
+.sidebar-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 1rem 1rem;
+  padding: 7px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+
+  &:focus-within { border-color: var(--border-accent); }
+
+  .search-icon { color: var(--text-muted); flex-shrink: 0; }
+}
+
+.search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: 13px;
+  font-family: 'Inter', sans-serif;
+
+  &::placeholder { color: var(--text-muted); }
+}
+
+.sidebar-nav {
+  flex: 1;
+  padding: 0 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.nav-section { display: flex; flex-direction: column; gap: 2px; }
+
+.section-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 0 0.5rem;
+  margin-bottom: 4px;
+}
+
+.nav-entry {
+  display: block;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  text-decoration: none;
+
+  &:hover { color: var(--text); background: var(--border); }
+
+  &.active {
+    color: var(--accent);
+    background: var(--accent-glow);
+  }
+}
+
+// ── Main content ───────────────────────────────────────
+.doc-content {
+  margin-left: 240px;
+  flex: 1;
+  padding: 2.5rem 3rem 4rem;
+  max-width: 820px;
+}
+
+.loading-state {
+  padding-top: 2rem;
+}
+
+.loading-bar {
+  height: 2px;
+  width: 120px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  background-size: 200% 100%;
+  border-radius: 1px;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+// ── Markdown body ──────────────────────────────────────
+.markdown-body {
+  color: var(--text);
+  line-height: 1.75;
+
+  h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 0.5rem;
+    color: var(--text);
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  h2 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin-top: 2rem;
+    margin-bottom: 0.75rem;
+    color: var(--text);
+  }
+
+  h3 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+    color: var(--text);
+  }
+
+  p { margin-bottom: 1rem; color: var(--text); opacity: 0.9; }
+
+  a { color: var(--accent); text-decoration: none; &:hover { text-decoration: underline; } }
+
+  blockquote {
+    border-left: 3px solid var(--border-accent);
+    background: var(--accent-glow);
+    margin: 1rem 0;
+    padding: 0.75rem 1rem;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 13.5px;
+
+    th {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--text-muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    td {
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      color: var(--text);
+    }
+
+    tr:hover td { background: var(--bg-card); }
+  }
+
+  hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+
+  ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+  li { margin-bottom: 0.3rem; }
+}

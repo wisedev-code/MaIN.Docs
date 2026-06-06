@@ -1,0 +1,121 @@
+<div class="home">
+  <div class="bg-mesh"></div>
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+
+  <div class="chat-shell" [class.has-messages]="hasMessages()">
+
+    @if (!hasMessages()) {
+      <div class="hero animate-in">
+        <div class="hero-badge">AI-Powered Documentation</div>
+        <h1 class="hero-title">What can I help you build?</h1>
+        <p class="hero-sub">Ask anything about MaIN.NET — code, architecture, or debugging.</p>
+      </div>
+    }
+
+    @if (hasMessages()) {
+      <div class="messages" #messagesEl>
+        @for (msg of messages(); track $index) {
+          <div class="message animate-in" [class.user]="msg.role === 'user'" [class.assistant]="msg.role === 'assistant'">
+            @if (msg.role === 'assistant') {
+              <div class="msg-avatar">{{ selectedAgent().icon }}</div>
+            }
+            <div class="msg-body">
+              @if (msg.role === 'assistant') {
+                <div class="msg-agent-name">{{ selectedAgent().name }}</div>
+              }
+              <div class="msg-content" [innerHTML]="renderMarkdown(msg.content)"></div>
+              @if (msg.streaming && msg.content.length === 0) {
+                <div class="typing-indicator"><span></span><span></span><span></span></div>
+              }
+              @if (msg.streaming && msg.content.length > 0) {
+                <span class="cursor">▍</span>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    }
+
+    <div class="input-area" [class.centered]="!hasMessages()">
+
+      <!-- Agent zone: single hover boundary for pills + panel -->
+      <div class="agent-zone" (mouseleave)="hideAgentInfo()">
+        <div class="agent-switcher">
+          @for (agent of agents; track agent.id) {
+            <button
+              class="agent-pill"
+              [class.active]="selectedAgent().id === agent.id"
+              [class.previewing]="hoveredAgent()?.id === agent.id"
+              (click)="selectAgent(agent)"
+              (mouseenter)="showAgentInfo(agent)"
+            >
+              <span class="agent-icon">{{ agent.icon }}</span>
+              <span class="agent-name">{{ agent.name }}</span>
+            </button>
+          }
+        </div>
+
+        <!-- Inline agent info panel — always rendered, CSS drives open/close -->
+        <div class="agent-info-panel" [class.open]="hoveredAgent() !== null">
+        <div class="aip-inner">
+          <div class="aip-icon">{{ displayedAgent().icon }}</div>
+          <div class="aip-right">
+            <div class="aip-head">
+              <span class="aip-name">{{ displayedAgent().name }}</span>
+              <span class="aip-sep">—</span>
+              <span class="aip-tagline">{{ displayedAgent().tagline }}</span>
+            </div>
+            <div class="aip-chips">
+              @for (cap of displayedAgent().capabilities; track cap.label) {
+                <span class="aip-chip">{{ cap.label }}</span>
+              }
+            </div>
+            <div class="aip-row">
+              <span class="aip-row-label">Tools</span>
+              @for (tool of displayedAgent().tools; track tool) {
+                <span class="aip-chip aip-chip-dim">{{ tool }}</span>
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+      </div><!-- /agent-zone -->
+
+      <!-- Input bar -->
+      <div class="input-bar">
+        <textarea
+          class="input-field"
+          [value]="inputText()"
+          (input)="inputText.set($any($event.target).value)"
+          (keydown)="onKeydown($event)"
+          [placeholder]="'Ask the ' + selectedAgent().name + ' agent...'"
+          rows="1"
+          [disabled]="isStreaming()"
+        ></textarea>
+        <div class="input-actions">
+          @if (hasMessages()) {
+            <button class="action-btn clear-btn" (click)="clear()" title="Clear">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+              </svg>
+            </button>
+          }
+          @if (isStreaming()) {
+            <button class="action-btn stop-btn" (click)="stop()" title="Stop">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+            </button>
+          } @else {
+            <button class="action-btn send-btn" (click)="send()" [disabled]="!inputText().trim()" title="Send">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+            </button>
+          }
+        </div>
+      </div>
+
+      <p class="input-hint">MaIN.NET is open source — responses are AI-generated for guidance only.</p>
+    </div>
+  </div>
+</div>

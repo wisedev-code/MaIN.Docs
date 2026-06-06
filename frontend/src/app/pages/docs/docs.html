@@ -1,0 +1,43 @@
+<div class="docs-layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-search">
+      <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+      <input
+        class="search-input"
+        type="text"
+        placeholder="Search docs..."
+        [value]="searchQuery()"
+        (input)="onSearchInput($event)"
+      />
+    </div>
+
+    <nav class="sidebar-nav">
+      @for (section of filteredSections(); track section.title) {
+        <div class="nav-section">
+          <div class="section-title">{{ section.title }}</div>
+          @for (entry of section.entries; track entry.slug) {
+            <a
+              class="nav-entry"
+              [class.active]="currentSlug() === entry.slug"
+              (click)="navigate(entry.slug)"
+            >{{ entry.title }}</a>
+          }
+        </div>
+      }
+    </nav>
+  </aside>
+
+  <!-- Main content -->
+  <main class="doc-content">
+    @if (loading()) {
+      <div class="loading-state">
+        <div class="loading-bar"></div>
+      </div>
+    } @else {
+      <article class="markdown-body animate-in" [innerHTML]="content()"></article>
+    }
+  </main>
+</div>
