@@ -43,7 +43,6 @@ app.UseMiddleware<ApiKeyMiddleware>();
 app.UseRateLimiter();
 
 app.Services.UseMaIN();
-AIHub.Extensions.DisableLLamaLogs();
 
 var orchestrator = app.Services.GetRequiredService<DocsAgentOrchestrator>();
 await orchestrator.InitializeAsync();
