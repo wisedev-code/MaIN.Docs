@@ -22,9 +22,6 @@ WORKDIR /app
 
 COPY --from=build /app .
 
-# docs-content is mounted as a volume in production; copy defaults for local builds
-COPY ../docs-content /app/docs-content
-
 ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
 

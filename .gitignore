@@ -1,6 +1,9 @@
 # macOS
 .DS_Store
 
+# Local env overrides with real keys — never commit
+.env.local
+
 # .NET build outputs
 **/bin/
 **/obj/

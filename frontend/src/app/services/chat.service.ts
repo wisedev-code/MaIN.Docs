@@ -4,7 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { ChatMessage } from '../models/chat.models';
 
 const API_URL = '/api/chat/complete';
-const API_KEY = 'change-me-before-deploy';
+const API_KEY = (window as any).__env?.apiKey ?? 'change-me-before-deploy';
 
 interface ChatApiResponse {
   text: string;

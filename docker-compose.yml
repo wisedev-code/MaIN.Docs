@@ -1,0 +1,27 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      - ApiKey=${API_KEY}
+      - DocsContentPath=/docs-content
+      - AllowedOrigins__0=http://localhost
+      - MaIN__GroqCloudKey=${GROQ_KEY}
+      - MaIN__GeminiKey=${GEMINI_KEY}
+      - MaIN__OpenAiKey=${OPENAI_KEY}
+    volumes:
+      - ./docs-content:/docs-content:ro
+    expose:
+      - "8080"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      - API_KEY=${API_KEY}
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
