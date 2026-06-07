@@ -31,8 +31,8 @@ public static class ChatEndpoints
         try
         {
             var messages = BuildMessages(request);
-            var text = await orchestrator.ProcessAsync(request.AgentId, messages, ct);
-            return Results.Ok(new ChatResponse(text));
+            var result = await orchestrator.ProcessAsync(request.AgentId, messages, ct);
+            return Results.Ok(new ChatResponse(result.Content, result.ToolsUsed, result.EstimatedTokens, result.ArtifactUrl, result.ArtifactProposed));
         }
         catch (TimeoutException ex)
         {

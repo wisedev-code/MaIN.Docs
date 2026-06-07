@@ -34,6 +34,7 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddSingleton<DocsLoader>();
+builder.Services.AddSingleton<ArtifactService>();
 builder.Services.AddSingleton<DocsAgentOrchestrator>();
 
 var app = builder.Build();

@@ -1,13 +1,25 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { ChatMessage } from '../models/chat.models';
+import { ArtifactProposal, ChatMessage, ToolUsage } from '../models/chat.models';
 
 const API_URL = '/api/chat/complete';
 const API_KEY = (window as any).__env?.apiKey ?? 'change-me-before-deploy';
 
 interface ChatApiResponse {
   text: string;
+  toolsUsed: ToolUsage[];
+  estimatedTokens: number;
+  artifactUrl?: string;
+  artifactProposed?: ArtifactProposal;
+}
+
+export interface AgentResponse {
+  content: string;
+  toolsUsed: ToolUsage[];
+  estimatedTokens: number;
+  artifactUrl?: string;
+  artifactProposed?: ArtifactProposal;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -20,7 +32,7 @@ export class ChatService {
     this.abortController = null;
   }
 
-  async sendMessage(agentId: string, message: string, history: ChatMessage[]): Promise<string> {
+  async sendMessage(agentId: string, message: string, history: ChatMessage[]): Promise<AgentResponse> {
     this.abortController = new AbortController();
 
     const body = {
@@ -39,6 +51,6 @@ export class ChatService {
     );
 
     this.abortController = null;
-    return response.text;
+    return { content: response.text, toolsUsed: response.toolsUsed, estimatedTokens: response.estimatedTokens, artifactUrl: response.artifactUrl, artifactProposed: response.artifactProposed };
   }
 }

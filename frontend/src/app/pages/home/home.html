@@ -16,7 +16,7 @@
     @if (hasMessages()) {
       <div class="messages" #messagesEl>
         @for (msg of messages(); track $index) {
-          <div class="message animate-in" [class.user]="msg.role === 'user'" [class.assistant]="msg.role === 'assistant'">
+          <div class="message" [class.user]="msg.role === 'user'" [class.assistant]="msg.role === 'assistant'">
             @if (msg.role === 'assistant') {
               <div class="msg-avatar">{{ selectedAgent().icon }}</div>
             }
@@ -24,12 +24,72 @@
               @if (msg.role === 'assistant') {
                 <div class="msg-agent-name">{{ selectedAgent().name }}</div>
               }
-              <div class="msg-content" [innerHTML]="renderMarkdown(msg.content)"></div>
-              @if (msg.streaming && msg.content.length === 0) {
-                <div class="typing-indicator"><span></span><span></span><span></span></div>
+
+              @if (!msg.streaming && msg.role === 'assistant' && msg.toolsUsed && msg.toolsUsed.length > 0) {
+                <div class="msg-meta">
+                  <span class="meta-tools-label">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                    </svg>
+                    tools
+                  </span>
+                  <div class="meta-tools">
+                    @for (t of msg.toolsUsed; track t.name) {
+                      <span class="meta-tool">{{ t.name }}@if (t.calls > 1) {<span class="meta-count"> ×{{ t.calls }}</span>}</span>
+                    }
+                  </div>
+                  <span class="meta-divider">·</span>
+                  <span class="meta-token-info">~{{ toolTokenEstimate(msg.toolsUsed) }} tool tokens</span>
+                  @if (msg.estimatedTokens) {
+                    <span class="meta-divider">·</span>
+                    <span class="meta-token-info">~{{ msg.estimatedTokens }} response</span>
+                  }
+                </div>
               }
-              @if (msg.streaming && msg.content.length > 0) {
-                <span class="cursor">▍</span>
+
+              @if (msg.artifactUrl) {
+                <a class="artifact-card" [href]="msg.artifactUrl" target="_blank" [attr.download]="extractArchiveName(msg.artifactUrl)">
+                  <div class="arc-file-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                      <polyline points="14 2 14 8 20 8"/>
+                      <line x1="10" y1="12" x2="10" y2="12"/>
+                      <line x1="10" y1="15" x2="10" y2="15"/>
+                      <line x1="10" y1="18" x2="10" y2="18"/>
+                      <line x1="14" y1="12" x2="14" y2="12"/>
+                      <line x1="14" y1="15" x2="14" y2="15"/>
+                      <line x1="14" y1="18" x2="14" y2="18"/>
+                    </svg>
+                  </div>
+                  <div class="arc-info">
+                    <span class="arc-name">{{ extractArchiveName(msg.artifactUrl) }}</span>
+                    <span class="arc-meta">Complete .NET project · Unzip &amp; run</span>
+                  </div>
+                  <div class="arc-dl-btn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="7 10 12 15 17 10"/>
+                      <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    Download
+                  </div>
+                </a>
+              }
+
+              @if (msg.streaming && msg.content.length === 0) {
+                <div class="inference-indicator">
+                  <div class="inf-bars">
+                    <span></span><span></span><span></span><span></span>
+                    <span></span><span></span><span></span><span></span>
+                    <span></span><span></span>
+                  </div>
+                  <span class="inf-face">{{ currentFace() }}</span>
+                </div>
+              } @else {
+                <div class="msg-content" [innerHTML]="renderMarkdown(msg.content)"></div>
+                @if (msg.streaming) {
+                  <span class="cursor">▌</span>
+                }
               }
             </div>
           </div>
@@ -37,9 +97,18 @@
       </div>
     }
 
-    <div class="input-area" [class.centered]="!hasMessages()">
+    @if (showArtifactPrompt()) {
+      <div class="artifact-prompt">
+        <span class="ap-icon">⬡</span>
+        <span class="ap-text">Generate runnable artifact?</span>
+        <div class="ap-actions">
+          <button class="ap-btn ap-yes" (click)="requestArtifact()">Generate</button>
+          <button class="ap-btn ap-no"  (click)="dismissArtifactPrompt()">Dismiss</button>
+        </div>
+      </div>
+    }
 
-      <!-- Agent zone: single hover boundary for pills + panel -->
+    <div class="input-area" [class.centered]="!hasMessages()">
       <div class="agent-zone" (mouseleave)="hideAgentInfo()">
         <div class="agent-switcher">
           @for (agent of agents; track agent.id) {
@@ -56,33 +125,31 @@
           }
         </div>
 
-        <!-- Inline agent info panel — always rendered, CSS drives open/close -->
         <div class="agent-info-panel" [class.open]="hoveredAgent() !== null">
-        <div class="aip-inner">
-          <div class="aip-icon">{{ displayedAgent().icon }}</div>
-          <div class="aip-right">
-            <div class="aip-head">
-              <span class="aip-name">{{ displayedAgent().name }}</span>
-              <span class="aip-sep">—</span>
-              <span class="aip-tagline">{{ displayedAgent().tagline }}</span>
-            </div>
-            <div class="aip-chips">
-              @for (cap of displayedAgent().capabilities; track cap.label) {
-                <span class="aip-chip">{{ cap.label }}</span>
-              }
-            </div>
-            <div class="aip-row">
-              <span class="aip-row-label">Tools</span>
-              @for (tool of displayedAgent().tools; track tool) {
-                <span class="aip-chip aip-chip-dim">{{ tool }}</span>
-              }
+          <div class="aip-inner">
+            <div class="aip-icon">{{ displayedAgent().icon }}</div>
+            <div class="aip-right">
+              <div class="aip-head">
+                <span class="aip-name">{{ displayedAgent().name }}</span>
+                <span class="aip-sep">—</span>
+                <span class="aip-tagline">{{ displayedAgent().tagline }}</span>
+              </div>
+              <div class="aip-chips">
+                @for (cap of displayedAgent().capabilities; track cap.label) {
+                  <span class="aip-chip">{{ cap.label }}</span>
+                }
+              </div>
+              <div class="aip-row">
+                <span class="aip-row-label">Tools</span>
+                @for (tool of displayedAgent().tools; track tool) {
+                  <span class="aip-chip aip-chip-dim">{{ tool }}</span>
+                }
+              </div>
             </div>
           </div>
         </div>
       </div>
-      </div><!-- /agent-zone -->
 
-      <!-- Input bar -->
       <div class="input-bar">
         <textarea
           class="input-field"
@@ -97,7 +164,8 @@
           @if (hasMessages()) {
             <button class="action-btn clear-btn" (click)="clear()" title="Clear">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
+                <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
               </svg>
             </button>
           }

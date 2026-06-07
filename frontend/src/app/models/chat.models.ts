@@ -1,7 +1,21 @@
+export interface ToolUsage {
+  name: string;
+  calls: number;
+}
+
+export interface ArtifactProposal {
+  archiveName: string;
+  description: string;
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   streaming?: boolean;
+  toolsUsed?: ToolUsage[];
+  estimatedTokens?: number;
+  artifactUrl?: string;
+  artifactProposed?: ArtifactProposal;
 }
 
 export interface AgentCapability {

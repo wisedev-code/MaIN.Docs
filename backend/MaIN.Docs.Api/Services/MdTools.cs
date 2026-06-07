@@ -1,71 +1,107 @@
-using System.Text.Json;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MaIN.Docs.Api.Services;
 
 public static class MdTools
 {
-    public static Func<string, Task<string>> SearchIn(string directory) =>
-        async argsJson =>
+    private static string _directory = "";
+    private static ILogger _logger = NullLogger.Instance;
+
+    public static void Initialize(string directory, ILogger logger)
+    {
+        _directory = directory;
+        _logger    = logger;
+    }
+
+    public record ListDocsArgs;
+    public record SearchArgs(string Query);
+    public record ReadArgs(string Path);
+
+    public static Task<object> ListDocs(ListDocsArgs _)
+    {
+        _logger.LogInformation("[tool:list_docs] dir={Dir}", _directory);
+
+        if (!Directory.Exists(_directory))
         {
-            var args = JsonSerializer.Deserialize<SearchArgs>(argsJson,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+            _logger.LogWarning("[tool:list_docs] Directory not found: {Dir}", _directory);
+            return Task.FromResult<object>(new { error = $"Directory not found: {_directory}" });
+        }
 
-            if (!Directory.Exists(directory))
-                return JsonSerializer.Serialize(new { error = $"Directory not found: {directory}" });
-
-            var files = Directory.GetFiles(directory, "*.md", SearchOption.AllDirectories);
-            var results = new List<object>();
-
-            foreach (var file in files)
+        var files = Directory.GetFiles(_directory, "*.md", SearchOption.AllDirectories)
+            .Select(f => new
             {
-                var lines = await File.ReadAllLinesAsync(file);
-                var matches = new List<object>();
+                name     = Path.GetFileNameWithoutExtension(f),
+                fileName = Path.GetFileName(f),
+                path     = f,
+                sizeKb   = Math.Round(new FileInfo(f).Length / 1024.0, 1)
+            })
+            .OrderBy(f => f.name)
+            .ToList();
 
-                for (var i = 0; i < lines.Length; i++)
-                {
-                    if (!lines[i].Contains(args.Query, StringComparison.OrdinalIgnoreCase))
-                        continue;
+        _logger.LogInformation("[tool:list_docs] Found {Count} files", files.Count);
+        return Task.FromResult<object>(new { totalFiles = files.Count, files });
+    }
 
-                    var start = Math.Max(0, i - 1);
-                    var end = Math.Min(lines.Length - 1, i + 1);
-                    matches.Add(new { lineNumber = i + 1, snippet = string.Join('\n', lines[start..(end + 1)]) });
-                }
+    public static async Task<object> Search(SearchArgs args)
+    {
+        _logger.LogInformation("[tool:search_md_files] query={Query}", args.Query);
 
-                if (matches.Count > 0)
-                    results.Add(new { file = Path.GetFileName(file), path = file, matchCount = matches.Count, matches });
+        if (!Directory.Exists(_directory))
+        {
+            _logger.LogWarning("[tool:search_md_files] Directory not found: {Dir}", _directory);
+            return new { error = $"Directory not found: {_directory}" };
+        }
+
+        var files   = Directory.GetFiles(_directory, "*.md", SearchOption.AllDirectories);
+        var results = new List<object>();
+
+        foreach (var file in files)
+        {
+            var lines   = await File.ReadAllLinesAsync(file);
+            var matches = new List<object>();
+
+            for (var i = 0; i < lines.Length; i++)
+            {
+                if (!lines[i].Contains(args.Query, StringComparison.OrdinalIgnoreCase)) continue;
+                var start = Math.Max(0, i - 1);
+                var end   = Math.Min(lines.Length - 1, i + 1);
+                matches.Add(new { lineNumber = i + 1, snippet = string.Join('\n', lines[start..(end + 1)]) });
             }
 
-            return JsonSerializer.Serialize(new
-            {
-                query = args.Query,
-                totalFiles = files.Length,
-                matchingFiles = results.Count,
-                results
-            });
-        };
+            if (matches.Count > 0)
+                results.Add(new { file = Path.GetFileName(file), path = file, matchCount = matches.Count, matches });
+        }
 
-    public static Func<string, Task<string>> Read() =>
-        async argsJson =>
+        _logger.LogInformation("[tool:search_md_files] {Matching}/{Total} files matched", results.Count, files.Length);
+        return new { query = args.Query, totalFiles = files.Length, matchingFiles = results.Count, results };
+    }
+
+    public static async Task<object> Read(ReadArgs args)
+    {
+        _logger.LogInformation("[tool:read_md_file] path={Path}", args.Path);
+
+        if (!args.Path.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
         {
-            var args = JsonSerializer.Deserialize<ReadArgs>(argsJson,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+            _logger.LogWarning("[tool:read_md_file] Rejected non-.md path: {Path}", args.Path);
+            return new { error = "Only .md files are supported" };
+        }
 
-            if (!args.Path.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
-                return JsonSerializer.Serialize(new { error = "Only .md files are supported" });
+        if (!File.Exists(args.Path))
+        {
+            _logger.LogWarning("[tool:read_md_file] File not found: {Path}", args.Path);
+            return new { error = $"File not found: {args.Path}" };
+        }
 
-            if (!File.Exists(args.Path))
-                return JsonSerializer.Serialize(new { error = $"File not found: {args.Path}" });
+        var content = await File.ReadAllTextAsync(args.Path);
+        _logger.LogInformation("[tool:read_md_file] Read {Bytes} chars from {File}", content.Length, Path.GetFileName(args.Path));
 
-            var content = await File.ReadAllTextAsync(args.Path);
-            return JsonSerializer.Serialize(new
-            {
-                path = args.Path,
-                fileName = Path.GetFileName(args.Path),
-                content,
-                lastModified = File.GetLastWriteTime(args.Path).ToString("yyyy-MM-dd HH:mm:ss")
-            });
+        return new
+        {
+            path         = args.Path,
+            fileName     = Path.GetFileName(args.Path),
+            content,
+            lastModified = File.GetLastWriteTime(args.Path).ToString("yyyy-MM-dd HH:mm:ss")
         };
-
-    private record SearchArgs(string Query);
-    private record ReadArgs(string Path);
+    }
 }

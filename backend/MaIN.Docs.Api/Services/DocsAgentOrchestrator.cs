@@ -1,36 +1,37 @@
 using MaIN.Core.Hub;
 using MaIN.Core.Hub.Contexts.Interfaces.AgentContext;
 using MaIN.Core.Hub.Utils;
-using MaIN.Domain.Configuration;
 using MaIN.Domain.Entities;
 using MaIN.Domain.Entities.Tools;
 using MaIN.Domain.Models;
-using MaIN.Domain.Models.Abstract;
+using MaIN.Docs.Api.Models;
+using DomainModels = MaIN.Domain.Models.Models;
 
 namespace MaIN.Docs.Api.Services;
 
-public class DocsAgentOrchestrator(DocsLoader loader, ILogger<DocsAgentOrchestrator> logger)
+public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactService, ILogger<DocsAgentOrchestrator> logger)
 {
     private readonly Dictionary<string, IAgentContextExecutor> _agents = new();
     private readonly Dictionary<string, SemaphoreSlim> _locks = new();
 
-    private const string ModelCode   = "qwen3-coder-next:cloud";
-    private const string ModelDesign = "gemma4:31b-cloud";
-    private const string ModelReview = "gpt-oss:20b-cloud";
-
     public async Task InitializeAsync()
     {
-        ModelRegistry.RegisterOrReplace(new GenericCloudModel(ModelCode,   BackendType.Ollama, ModelCode));
-        ModelRegistry.RegisterOrReplace(new GenericCloudModel(ModelDesign, BackendType.Ollama, ModelDesign));
-        ModelRegistry.RegisterOrReplace(new GenericCloudModel(ModelReview, BackendType.Ollama, ModelReview));
-
         var docsPath = loader.DocsPath;
+        MdTools.Initialize(docsPath, logger);
+        ArtifactTools.Init(artifactService);
+
+        var sharedTools = BuildTools(docsPath);
+        var codeTools   = BuildCodeTools(docsPath);
+
+        var modelCode   = DomainModels.Gemini.Gemini3_5Flash;
+        var modelReview = DomainModels.Gemini.Gemini3_1FlashLite;
+        var modelDesign = DomainModels.Gemini.Gemini2_5Pro;
 
         var defs = new[]
         {
-            new AgentDef("code",   "Code",   ModelCode,   CodeSystemPrompt,   CodeTools(docsPath)),
-            new AgentDef("design", "Design", ModelDesign, DesignSystemPrompt, DesignTools(docsPath)),
-            new AgentDef("review", "Review", ModelReview, ReviewSystemPrompt, ReviewTools(docsPath)),
+            new AgentDef("code",   "Code",   modelCode,   CodeSystemPrompt,   codeTools),
+            new AgentDef("design", "Design", modelDesign, DesignSystemPrompt, sharedTools),
+            new AgentDef("review", "Review", modelReview, ReviewSystemPrompt, sharedTools),
         };
 
         foreach (var def in defs)
@@ -56,7 +57,7 @@ public class DocsAgentOrchestrator(DocsLoader loader, ILogger<DocsAgentOrchestra
         }
     }
 
-    public async Task<string> ProcessAsync(
+    public async Task<AgentResult> ProcessAsync(
         string agentId,
         IEnumerable<Message> messages,
         CancellationToken ct)
@@ -69,13 +70,50 @@ public class DocsAgentOrchestrator(DocsLoader loader, ILogger<DocsAgentOrchestra
         if (!await sem.WaitAsync(TimeSpan.FromSeconds(60), ct))
             throw new TimeoutException($"Agent '{agentId}' is busy. Please retry.");
 
+        string? artifactUrl = null;
+        ArtifactProposal? artifactProposed = null;
+        if (agentId == "code")
+        {
+            ArtifactTools.SetCapture(url => artifactUrl = url);
+            ArtifactTools.SetProposalCapture(p => artifactProposed = new ArtifactProposal(p.ArchiveName, p.Description));
+        }
+
         try
         {
-            var result = await ctx.ProcessAsync(messages);
-            return result.Message.Content;
+            var completedInvocations = new List<ToolInvocation>();
+            var result = await ctx.ProcessAsync(messages, toolCallback: inv =>
+            {
+                if (!inv.Done)
+                    logger.LogInformation("[{Agent}] Tool CALL  → {Tool} args={Args}", agentId, inv.ToolName, inv.Arguments);
+                else
+                    logger.LogInformation("[{Agent}] Tool DONE  ← {Tool}", agentId, inv.ToolName);
+
+                if (inv.Done) completedInvocations.Add(inv);
+                return Task.CompletedTask;
+            });
+
+            var tokenSummary = result.Message.Tokens
+                .GroupBy(t => t.Type)
+                .Select(g => $"{g.Key}:{g.Count()}(len={g.Sum(t => t.Text?.Length ?? 0)})")
+                .ToList();
+            logger.LogInformation("[{Agent}] Result content length={Len}, tokens=[{Tokens}]",
+                agentId,
+                result.Message.Content?.Length ?? 0,
+                string.Join(", ", tokenSummary));
+
+            var toolsUsed = completedInvocations
+                .GroupBy(i => i.ToolName)
+                .Select(g => new ToolUsage(g.Key, g.Count()))
+                .ToList();
+
+            var estimatedTokens = (int)Math.Round((result.Message.Content?.Length ?? 0) / 4.0);
+
+            return new AgentResult(result.Message.Content ?? string.Empty, toolsUsed, estimatedTokens, artifactUrl, artifactProposed);
         }
         finally
         {
+            ArtifactTools.SetCapture(null);
+            ArtifactTools.SetProposalCapture(null);
             sem.Release();
         }
     }
@@ -84,140 +122,131 @@ public class DocsAgentOrchestrator(DocsLoader loader, ILogger<DocsAgentOrchestra
 
     private record AgentDef(string Id, string Name, string Model, string SystemPrompt, ToolsConfiguration Tools);
 
-    private static ToolsConfiguration CodeTools(string docsPath) =>
+    private static ToolsConfiguration BuildTools(string docsPath) =>
         new ToolsConfigurationBuilder()
-            .AddTool("search_md_files", "Search docs for a keyword. Returns matching file paths and context snippets.",
+            .AddTool<MdTools.ListDocsArgs>(
+                "list_docs",
+                "List all available documentation files.",
+                new { type = "object", properties = new { } },
+                MdTools.ListDocs)
+            .AddTool<MdTools.SearchArgs>(
+                "search_md_files",
+                "Search docs for a keyword. Returns matching file paths and snippets.",
                 new
                 {
                     type = "object",
                     properties = new { query = new { type = "string", description = "Keyword or phrase to search for" } },
                     required = new[] { "query" }
                 },
-                MdTools.SearchIn(docsPath))
-            .AddTool("read_md_file", "Read the full content of a docs Markdown file by its path.",
+                MdTools.Search)
+            .AddTool<MdTools.ReadArgs>(
+                "read_md_file",
+                "Read the full content of a documentation file by its path.",
                 new
                 {
                     type = "object",
                     properties = new { path = new { type = "string", description = "Absolute path to the .md file" } },
                     required = new[] { "path" }
                 },
-                MdTools.Read())
+                MdTools.Read)
             .WithToolChoice("auto")
             .Build();
 
-    private static ToolsConfiguration DesignTools(string docsPath) =>
+    private static ToolsConfiguration BuildCodeTools(string docsPath) =>
         new ToolsConfigurationBuilder()
-            .AddTool("search_md_files", "Search docs for a keyword. Returns matching file paths and context snippets.",
+            .AddTool<MdTools.ListDocsArgs>(
+                "list_docs",
+                "List all available documentation files.",
+                new { type = "object", properties = new { } },
+                MdTools.ListDocs)
+            .AddTool<MdTools.SearchArgs>(
+                "search_md_files",
+                "Search docs for a keyword. Returns matching file paths and snippets.",
                 new
                 {
                     type = "object",
                     properties = new { query = new { type = "string", description = "Keyword or phrase to search for" } },
                     required = new[] { "query" }
                 },
-                MdTools.SearchIn(docsPath))
-            .WithToolChoice("auto")
-            .Build();
-
-    private static ToolsConfiguration ReviewTools(string docsPath) =>
-        new ToolsConfigurationBuilder()
-            .AddTool("search_md_files", "Search docs for a keyword. Returns matching file paths and context snippets.",
-                new
-                {
-                    type = "object",
-                    properties = new { query = new { type = "string", description = "Keyword or phrase to search for" } },
-                    required = new[] { "query" }
-                },
-                MdTools.SearchIn(docsPath))
-            .AddTool("read_md_file", "Read the full content of a docs Markdown file by its path.",
+                MdTools.Search)
+            .AddTool<MdTools.ReadArgs>(
+                "read_md_file",
+                "Read the full content of a documentation file by its path.",
                 new
                 {
                     type = "object",
                     properties = new { path = new { type = "string", description = "Absolute path to the .md file" } },
                     required = new[] { "path" }
                 },
-                MdTools.Read())
+                MdTools.Read)
+            .AddTool<ArtifactTools.ProposeArgs>(
+                "propose_artifact_generation",
+                "Signals the UI to offer a downloadable ZIP artifact. " +
+                "Call when your response contains a complete, compilable solution — not for partial snippets or conceptual answers. " +
+                "Skip it when the user is just exploring or when you'd need more details to make the code runnable. " +
+                "Call at most once per response.",
+                new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        archiveName = new { type = "string", description = "Suggested zip filename, e.g. MyAgent.zip" },
+                        description = new { type = "string", description = "One-line description of what the solution does" }
+                    },
+                    required = new[] { "archiveName", "description" }
+                },
+                ArtifactTools.Propose)
+            .AddTool<ArtifactTools.GenerateArgs>(
+                "generate_artifact",
+                "Packages a complete .NET solution into a ZIP archive and uploads it to cloud storage. " +
+                "ONLY call when the user explicitly confirms they want to download. " +
+                "Include all files needed to run: .csproj with correct NuGet references, Program.cs, and any supporting files. " +
+                "Do NOT call proactively.",
+                new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        archiveName = new { type = "string", description = "ZIP filename, e.g. MyAgent.zip" },
+                        files = new
+                        {
+                            type = "array",
+                            description = "Files to include in the archive",
+                            items = new
+                            {
+                                type = "object",
+                                properties = new
+                                {
+                                    path    = new { type = "string", description = "Relative path inside the zip, e.g. MyAgent/Program.cs" },
+                                    content = new { type = "string", description = "Complete file content" }
+                                },
+                                required = new[] { "path", "content" }
+                            }
+                        },
+                        description = new { type = "string", description = "One-line description of what the solution does" }
+                    },
+                    required = new[] { "archiveName", "files" }
+                },
+                ArtifactTools.Generate)
             .WithToolChoice("auto")
             .Build();
 
-    private const string CodeSystemPrompt = """
-        You are an expert MaIN.NET code assistant. MaIN.NET is an open-source .NET AI orchestration
-        framework that makes building AI-powered applications simple — locally via LLamaSharp or in
-        the cloud via GroqCloud, OpenAI, Gemini, Anthropic, and more.
+    private const string CodeSystemPrompt =
+        "You are a MaIN.NET code assistant. Use list_docs to discover docs, then search_md_files or read_md_file before answering. " +
+        "Generate complete, runnable C# code examples in ```csharp blocks with using statements. Prefer Minimal API style. " +
+        "You have two artifact tools — use judgment: " +
+        "• propose_artifact_generation — call this when your response contains a COMPLETE, self-contained solution (not a snippet or an explanation). " +
+        "  Complete means: has all required using statements, a proper entry point, and could be pasted into a file and run. " +
+        "  Skip it for partial examples, conceptual answers, or when you'd need more info to make the code runnable. " +
+        "  If you're missing key info (which LLM backend, specific use-case details), ask first — then produce the full solution and propose. " +
+        "• generate_artifact — only when the user explicitly says yes / confirms download. " +
+        "  Package a full .NET project: .csproj with all NuGet references, Program.cs, and any supporting files — enough to 'dotnet run' immediately.";
 
-        Your role: generate complete, correct, copy-paste-ready C# code examples.
+    private const string DesignSystemPrompt =
+        "You are a MaIN.NET architecture assistant. Use list_docs to discover docs, then search_md_files or read_md_file before answering. " +
+        "Reason about tradeoffs, backend selection, and production concerns (rate limiting, resilience, cost).";
 
-        Use search_md_files to find relevant documentation, then read_md_file to get full content
-        before answering. Always ground code examples in what the docs say.
-
-        Key API patterns you know well:
-        - DI setup: services.AddMaIN(config, s => { s.BackendType = BackendType.GroqCloud; s.GroqCloudKey = "..."; })
-          followed by app.Services.UseMaIN()
-        - Chat (stateless, per-request): AIHub.Chat()
-            .WithModel(Models.Groq.Llama4Scout17b)
-            .WithSystemPrompt("...")
-            .WithMessage("...")
-            .CompleteAsync(changeOfValue: async token => { /* stream token */ })
-        - Agent (stateful with tools): AIHub.Agent()
-            .WithModel(Models.Ollama.Llama4Scout)
-            .WithInitialPrompt("You are...")
-            .WithTools(new ToolsConfigurationBuilder()...Build())
-            .CreateAsync()
-          followed by context.ProcessAsync(messages, tokenCallback: cb)
-        - Flows: AIHub.Flow() for orchestrating multiple agents in sequence
-        - Model constants: Models.Ollama.Llama4Scout, Models.Ollama.Gemma3_12b, Models.OpenAi.Gpt4_1,
-          Models.Gemini.Gemini3_5Flash, Models.Anthropic.ClaudeOpus4_7
-        - Rate limiting + X-Api-Key middleware for production APIs
-
-        Always include using statements. Prefer Minimal API (Program.cs) style.
-        Format all code in ```csharp blocks. Show complete, runnable examples.
-        """;
-
-    private const string DesignSystemPrompt = """
-        You are an expert AI systems architect specializing in MaIN.NET. You reason about system
-        design, tradeoffs, and production patterns for AI-powered .NET applications.
-
-        Your role: help design multi-agent systems, select backends, plan tool compositions, and
-        guide production architecture decisions.
-
-        Use search_md_files to discover available documentation before answering.
-
-        Architecture concepts you reason about:
-        - Agent step pipelines: FETCH_DATA → REDIRECT → BECOME → ANSWER
-        - Flow orchestration with AIHub.Flow() for multi-stage agent pipelines
-        - Backend selection: GroqCloud (fast/cheap), OpenAI (tools/vision), Anthropic (long context),
-          Gemini (multimodal), local LLMs (privacy/offline)
-        - Tool composition: give each agent only the tools its role needs
-        - Concurrency patterns: stateless Chat() for web APIs vs stateful Agent() for workflows,
-          SemaphoreSlim for agent serialization in ASP.NET
-        - Cost optimisation: model tier selection, context window sizing, caching
-        - Deployment: Azure Container Apps, Static Web Apps + Container App split, Docker Compose
-
-        Always reason about tradeoffs. Give concrete model recommendations. Highlight production
-        considerations: rate limiting, key rotation, resilience, and observability.
-        """;
-
-    private const string ReviewSystemPrompt = """
-        You are an expert MaIN.NET code reviewer and debugger. You find bugs, misconfigurations,
-        security issues, and performance problems in MaIN.NET applications and fix them.
-
-        Your role: audit MaIN.NET usage for correctness, performance, and security.
-
-        Use search_md_files to locate relevant docs, then read_md_file to verify correct API usage
-        before flagging issues.
-
-        Common issues you catch:
-        1. Race conditions — shared AgentContext without SemaphoreSlim in a web API
-        2. Missing app.Services.UseMaIN() — agents/chats silently fail
-        3. LLamaSharp log spam — missing AIHub.Extensions.DisableLLamaLogs()
-        4. Stale model IDs — using obsolete KnownModels instead of Models.* or ModelRegistry
-        5. Model not registered — throws ModelNotRegisteredException at runtime
-        6. Blazor JS mismatch — using blazor.web.js for server-only publish (should be blazor.server.js)
-        7. Docker DataProtection — missing PersistKeysToFileSystem() causes antiforgery failures across restarts
-        8. Missing CORS — Angular frontend blocked by browser
-        9. Exposed API keys — keys in code or version control instead of environment variables
-        10. Rate limiter not applied — missing .RequireRateLimiting("policy") on the endpoint
-
-        Always provide before/after code examples. Explain WHY each issue is a problem.
-        Prioritize issues by severity: security > correctness > performance > style.
-        """;
+    private const string ReviewSystemPrompt =
+        "You are a MaIN.NET code reviewer. Use list_docs to discover docs, then search_md_files or read_md_file to verify correct API usage. " +
+        "Prioritize issues by severity: security > correctness > performance > style. Show before/after examples.";
 }
