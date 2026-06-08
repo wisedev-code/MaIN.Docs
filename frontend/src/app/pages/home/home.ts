@@ -31,9 +31,18 @@ export class Home implements OnDestroy {
   @ViewChild('fileInputEl') fileInputEl!: ElementRef<HTMLInputElement>;
 
   private readonly ASCII_FACES = [
+    // Lenny weighted 5× — he earned it
+    '( ͡° ͜ʖ ͡°)', '( ͡° ͜ʖ ͡°)', '( ͡° ͜ʖ ͡°)', '( ͡° ͜ʖ ͡°)', '( ͡° ͜ʖ ͡°)',
+    // Lenny variants
+    '( ͡~ ͜ʖ ͡°)', '( ͡o ͜ʖ ͡o)', '( ͡° ͜ʖ ͡-)', '(͡ ͡° ͜ ʖ ͡ ͡°)',
+    // originals
     '(ง •̀_•́)ง', '(⌐■_■)', '¯\\_(ツ)_/¯', '(╯°□°）╯', '(ಠ_ಠ)',
     '(◕‿◕)', 'ʕ•ᴥ•ʔ', '(¬‿¬)', '(づ｡◕‿◕｡)づ', '(•_•)',
     '(ᵔᴥᵔ)', '(っ˘ω˘ς)', '(ó_ò)', '(≖_≖)', '(งツ)ว',
+    // new additions
+    '(▀̿Ĺ̯▀̿ ̿)', '(╬ ಠ益ಠ)', 'ᕙ(⇀‸↼‶)ᕗ', '(ノ°◡°)ノ︵ ┻━┻',
+    '༼ つ ◕_◕ ༽つ', '(งಠ_ಠ)ง', 'ヽ(°〇°)ﾉ', '( ˘ ³˘)♥',
+    '(づ￣ ³￣)づ', '乁( ◔ ౪◔)「', '(ಥ﹏ಥ)', '┬──┬ ノ(°–°ノ)',
   ];
 
   agents = AGENTS;
@@ -50,13 +59,35 @@ export class Home implements OnDestroy {
   issueProposal = signal<IssueProposal | null>(null);
   showReviewPrompt = signal(false);
   reviewProposal = signal<PrReviewProposal | null>(null);
+  reviewSuccess = signal<{ url: string; prNumber: number; verdict: string } | null>(null);
+  private reviewSuccessTimer: ReturnType<typeof setTimeout> | null = null;
   showCodeChangePrompt = signal(false);
   codeChangeProposal = signal<CodeChangeProposal | null>(null);
   showPrPrompt = signal(false);
   prProposal = signal<PrProposal | null>(null);
   attachments = signal<Attachment[]>([]);
 
+  ensembleStep = signal<'idle' | 'design' | 'code' | 'review' | 'done'>('idle');
+  showEnsembleAccept = signal(false);
+  ensembleContext = signal<{ question: string; designContent?: string; codeContent?: string; branchName?: string } | null>(null);
+
   hasMessages = computed(() => this.messages().length > 0);
+
+  currentEnsembleStageLabel = computed(() => {
+    switch (this.ensembleStep()) {
+      case 'design': return 'Design stage complete';
+      case 'code':   return 'Code stage complete — files queued';
+      default: return '';
+    }
+  });
+
+  nextEnsembleStageLabel = computed(() => {
+    switch (this.ensembleStep()) {
+      case 'design': return 'Continue → Code Stage';
+      case 'code':   return 'Push Files & Review →';
+      default: return 'Continue →';
+    }
+  });
 
   private chatResetSnapshot = 0;
 
@@ -99,35 +130,48 @@ export class Home implements OnDestroy {
     this.inputText.set('');
     this.attachments.set([]);
     this.resetTextareaHeight();
-    this.messages.update(m => [...m, { role: 'assistant', content: '', streaming: true }]);
+    const isFlow = this.selectedAgent().id === 'flow';
+    this.messages.update(m => [...m, { role: 'assistant', content: '', streaming: true, agentId: isFlow ? 'design' : undefined }]);
     this.currentFace.set(this.ASCII_FACES[Math.floor(Math.random() * this.ASCII_FACES.length)]);
     this.isStreaming.set(true);
     setTimeout(() => this.scrollToBottom(), 60);
 
     try {
-      const response = await this.chatService.sendMessage(this.selectedAgent().id, text, history);
-      const msgIndex = this.messages().length - 1;
-      await this.revealWordByWord(response.content, msgIndex, response.toolsUsed, response.estimatedTokens, response.artifactUrl, response.artifactProposed, response.issueProposed, response.issueUrl, response.planProposed, response.reviewProposed, response.codeChangeProposed, response.prProposed, response.prUrl);
+      if (isFlow) {
+        this.ensembleStep.set('design');
+        this.ensembleContext.set({ question: text });
+        const msgIndex = this.messages().length - 1;
+        const response = await this.chatService.sendEnsembleDesign(text, history);
+        await this.revealWordByWord(response.content, msgIndex, response.toolsUsed, response.estimatedTokens,
+          undefined, undefined, response.issueProposed, response.issueUrl, response.planProposed,
+          undefined, undefined, undefined, undefined, 'design');
+        this.ensembleContext.update(ctx => ctx ? { ...ctx, designContent: response.content } : null);
+        this.showEnsembleAccept.set(true);
+      } else {
+        const response = await this.chatService.sendMessage(this.selectedAgent().id, text, history);
+        const msgIndex = this.messages().length - 1;
+        await this.revealWordByWord(response.content, msgIndex, response.toolsUsed, response.estimatedTokens, response.artifactUrl, response.artifactProposed, response.issueProposed, response.issueUrl, response.planProposed, response.reviewProposed, response.codeChangeProposed, response.prProposed, response.prUrl);
 
-      if (response.artifactProposed && !response.artifactUrl) {
-        this.artifactProposal.set(response.artifactProposed);
-        this.showArtifactPrompt.set(true);
-      }
-      if (response.issueProposed && !response.issueUrl) {
-        this.issueProposal.set(response.issueProposed);
-        this.showIssuePrompt.set(true);
-      }
-      if (response.reviewProposed && !response.prUrl) {
-        this.reviewProposal.set(response.reviewProposed);
-        this.showReviewPrompt.set(true);
-      }
-      if (response.codeChangeProposed) {
-        this.codeChangeProposal.set(response.codeChangeProposed);
-        this.showCodeChangePrompt.set(true);
-      }
-      if (response.prProposed && !response.prUrl) {
-        this.prProposal.set(response.prProposed);
-        this.showPrPrompt.set(true);
+        if (response.artifactProposed && !response.artifactUrl) {
+          this.artifactProposal.set(response.artifactProposed);
+          this.showArtifactPrompt.set(true);
+        }
+        if (response.issueProposed && !response.issueUrl) {
+          this.issueProposal.set(response.issueProposed);
+          this.showIssuePrompt.set(true);
+        }
+        if (response.reviewProposed && !response.prUrl) {
+          this.reviewProposal.set(response.reviewProposed);
+          this.showReviewPrompt.set(true);
+        }
+        if (response.codeChangeProposed) {
+          this.codeChangeProposal.set(response.codeChangeProposed);
+          this.showCodeChangePrompt.set(true);
+        }
+        if (response.prProposed && !response.prUrl) {
+          this.prProposal.set(response.prProposed);
+          this.showPrPrompt.set(true);
+        }
       }
     } catch {
       this.messages.update(msgs => {
@@ -157,7 +201,8 @@ export class Home implements OnDestroy {
     reviewProposed?: PrReviewProposal,
     codeChangeProposed?: CodeChangeProposal,
     prProposed?: PrProposal,
-    prUrl?: string
+    prUrl?: string,
+    agentId?: string
   ) {
     const CHUNK = 4;
     const DELAY = 32;
@@ -200,6 +245,7 @@ export class Home implements OnDestroy {
         codeChangeProposed,
         prProposed,
         prUrl,
+        ...(agentId ? { agentId } : {}),
       };
       return updated;
     });
@@ -237,12 +283,32 @@ export class Home implements OnDestroy {
     this.reviewProposal.set(null);
   }
 
-  requestReview() {
+  async requestReview() {
     const proposal = this.reviewProposal();
     this.dismissReviewPrompt();
-    const hint = proposal ? ` PR #${proposal.prNumber}, verdict: ${proposal.verdict}.` : '';
-    this.inputText.set(`Please submit the PR review now.${hint}`);
-    this.send();
+    try {
+      const url = await this.chatService.confirmReview();
+      this.messages.update(msgs => {
+        const updated = [...msgs];
+        const lastAssistant = [...updated].reverse().findIndex(m => m.role === 'assistant');
+        if (lastAssistant !== -1) {
+          const idx = updated.length - 1 - lastAssistant;
+          updated[idx] = { ...updated[idx], reviewUrl: url };
+        }
+        return updated;
+      });
+      if (this.reviewSuccessTimer) clearTimeout(this.reviewSuccessTimer);
+      this.reviewSuccess.set({ url, prNumber: proposal?.prNumber ?? 0, verdict: proposal?.verdict ?? '' });
+      this.reviewSuccessTimer = setTimeout(() => this.reviewSuccess.set(null), 6000);
+    } catch {
+      this.inputText.set('Please submit the PR review now.');
+      this.send();
+    }
+  }
+
+  dismissReviewSuccess() {
+    if (this.reviewSuccessTimer) clearTimeout(this.reviewSuccessTimer);
+    this.reviewSuccess.set(null);
   }
 
   dismissCodeChangePrompt() {
@@ -250,12 +316,14 @@ export class Home implements OnDestroy {
     this.codeChangeProposal.set(null);
   }
 
-  requestCodeChange() {
-    const proposal = this.codeChangeProposal();
+  async requestCodeChange() {
     this.dismissCodeChangePrompt();
-    const hint = proposal ? ` File: ${proposal.filePath} on branch ${proposal.branch}.` : '';
-    this.inputText.set(`Please push the file change to the branch now.${hint}`);
-    this.send();
+    try {
+      await this.chatService.confirmCodeChange();
+    } catch {
+      this.inputText.set('Please push the file change to the branch now.');
+      this.send();
+    }
   }
 
   dismissPrPrompt() {
@@ -263,12 +331,108 @@ export class Home implements OnDestroy {
     this.prProposal.set(null);
   }
 
-  requestPr() {
-    const proposal = this.prProposal();
+  async requestPr() {
     this.dismissPrPrompt();
-    const hint = proposal ? ` Title: "${proposal.title}", from ${proposal.headBranch} to ${proposal.baseBranch}.` : '';
-    this.inputText.set(`Please create the pull request now.${hint}`);
-    this.send();
+    try {
+      const url = await this.chatService.confirmPr();
+      this.messages.update(msgs => {
+        const updated = [...msgs];
+        const lastAssistant = [...updated].reverse().findIndex(m => m.role === 'assistant');
+        if (lastAssistant !== -1) {
+          const idx = updated.length - 1 - lastAssistant;
+          updated[idx] = { ...updated[idx], prUrl: url };
+        }
+        return updated;
+      });
+    } catch {
+      this.inputText.set('Please create the pull request now.');
+      this.send();
+    }
+  }
+
+  getAgentById(id?: string): AgentDefinition {
+    if (!id) return this.selectedAgent();
+    return AGENTS.find(a => a.id === id) ?? this.selectedAgent();
+  }
+
+  isDone(stage: 'design' | 'code' | 'review'): boolean {
+    const order = ['design', 'code', 'review', 'done'];
+    const cur = this.ensembleStep();
+    return order.indexOf(cur) > order.indexOf(stage);
+  }
+
+  dismissEnsembleFlow() {
+    this.showEnsembleAccept.set(false);
+    this.ensembleStep.set('idle');
+    this.ensembleContext.set(null);
+  }
+
+  async acceptEnsembleStage() {
+    const step = this.ensembleStep();
+    this.showEnsembleAccept.set(false);
+
+    if (step === 'design') {
+      const ctx = this.ensembleContext()!;
+      this.ensembleStep.set('code');
+      this.messages.update(m => [...m, { role: 'assistant', content: '', streaming: true, agentId: 'code' }]);
+      const msgIndex = this.messages().length - 1;
+      this.currentFace.set(this.ASCII_FACES[Math.floor(Math.random() * this.ASCII_FACES.length)]);
+      this.isStreaming.set(true);
+      setTimeout(() => this.scrollToBottom(), 60);
+
+      try {
+        const response = await this.chatService.sendEnsembleCode(ctx.question, ctx.designContent!);
+        this.ensembleContext.update(c => c ? { ...c, codeContent: response.content, branchName: response.branchName } : null);
+        await this.revealWordByWord(response.content, msgIndex, response.toolsUsed, response.estimatedTokens,
+          undefined, undefined, undefined, undefined, undefined, undefined,
+          response.codeChangeProposed, response.prProposed, undefined, 'code');
+        this.showEnsembleAccept.set(true);
+      } catch {
+        this.messages.update(msgs => {
+          const updated = [...msgs];
+          updated[updated.length - 1] = { ...updated[updated.length - 1], content: 'Code stage failed. Please try again.', streaming: false };
+          return updated;
+        });
+      } finally {
+        this.isStreaming.set(false);
+      }
+
+    } else if (step === 'code') {
+      const ctx = this.ensembleContext()!;
+      this.ensembleStep.set('review');
+      this.messages.update(m => [...m, { role: 'assistant', content: '', streaming: true, agentId: 'review' }]);
+      const msgIndex = this.messages().length - 1;
+      this.currentFace.set(this.ASCII_FACES[Math.floor(Math.random() * this.ASCII_FACES.length)]);
+      this.isStreaming.set(true);
+      setTimeout(() => this.scrollToBottom(), 60);
+
+      try {
+        try { await this.chatService.confirmCodeChange(); } catch { /* no pending changes, proceed */ }
+        const response = await this.chatService.sendEnsembleReview(
+          ctx.question, ctx.designContent!, ctx.codeContent!, ctx.branchName!);
+        await this.revealWordByWord(response.content, msgIndex, response.toolsUsed, response.estimatedTokens,
+          undefined, undefined, undefined, undefined, undefined, response.reviewProposed,
+          response.codeChangeProposed, response.prProposed, response.prUrl, 'review');
+        this.ensembleStep.set('done');
+
+        if (response.reviewProposed && !response.prUrl) {
+          this.reviewProposal.set(response.reviewProposed);
+          this.showReviewPrompt.set(true);
+        }
+        if (response.prProposed && !response.prUrl) {
+          this.prProposal.set(response.prProposed);
+          this.showPrPrompt.set(true);
+        }
+      } catch {
+        this.messages.update(msgs => {
+          const updated = [...msgs];
+          updated[updated.length - 1] = { ...updated[updated.length - 1], content: 'Review stage failed. Please try again.', streaming: false };
+          return updated;
+        });
+      } finally {
+        this.isStreaming.set(false);
+      }
+    }
   }
 
   stop() {
@@ -290,11 +454,15 @@ export class Home implements OnDestroy {
     this.issueProposal.set(null);
     this.showReviewPrompt.set(false);
     this.reviewProposal.set(null);
+    this.reviewSuccess.set(null);
     this.showCodeChangePrompt.set(false);
     this.codeChangeProposal.set(null);
     this.showPrPrompt.set(false);
     this.prProposal.set(null);
     this.attachments.set([]);
+    this.ensembleStep.set('idle');
+    this.showEnsembleAccept.set(false);
+    this.ensembleContext.set(null);
     this.resetTextareaHeight();
   }
 

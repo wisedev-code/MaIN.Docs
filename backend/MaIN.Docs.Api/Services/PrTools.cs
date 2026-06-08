@@ -33,11 +33,52 @@ public static class PrTools
     private static Action<PrProposal>? _prCapture;
     private static Action<string>? _prUrlCapture;
 
+    private static SubmitPrReviewArgs? _pendingReview;
+    private static readonly List<PushFileArgs> _pendingCodeChanges = [];
+    private static CreatePrArgs? _pendingPr;
+
+    public static bool HasPendingReview => _pendingReview is not null;
+    public static bool HasPendingCodeChange => _pendingCodeChanges.Count > 0;
+    public static int PendingCodeChangeCount => _pendingCodeChanges.Count;
+    public static bool HasPendingPr => _pendingPr is not null;
+
     public static void Init(GitHubService svc) => _svc = svc;
     public static void SetReviewCapture(Action<PrReviewProposal>? capture) => _reviewCapture = capture;
     public static void SetCodeChangeCapture(Action<CodeChangeProposal>? capture) => _codeChangeCapture = capture;
     public static void SetPrCapture(Action<PrProposal>? capture) => _prCapture = capture;
     public static void SetPrUrlCapture(Action<string>? capture) => _prUrlCapture = capture;
+
+    public static async Task<string> SubmitPendingReview()
+    {
+        var args = _pendingReview ?? throw new InvalidOperationException("No pending review to submit.");
+        _pendingReview = null;
+        var comments = args.Comments.Select(c => new PrReviewComment(c.FilePath, c.Line, c.Body)).ToList();
+        return await _svc.SubmitPrReviewAsync(args.PrNumber, args.HeadSha, args.Verdict, args.Summary, comments);
+    }
+
+    public static async Task<List<string>> ExecuteAllPendingCodeChanges()
+    {
+        if (_pendingCodeChanges.Count == 0) throw new InvalidOperationException("No pending code changes to push.");
+        var pushed = new List<string>();
+        var snapshot = _pendingCodeChanges.ToList();
+        _pendingCodeChanges.Clear();
+        foreach (var args in snapshot)
+        {
+            await _svc.PushFileAsync(args.FilePath, args.Content, args.CommitMessage, args.Branch);
+            pushed.Add(args.FilePath);
+        }
+        return pushed;
+    }
+
+    public static void ClearPendingCodeChanges() => _pendingCodeChanges.Clear();
+
+    public static async Task<string> ExecutePendingPr()
+    {
+        var args = _pendingPr ?? throw new InvalidOperationException("No pending PR to create.");
+        _pendingPr = null;
+        var pr = await _svc.CreatePullRequestAsync(args.Title, args.Body, args.HeadBranch, args.BaseBranch);
+        return pr.HtmlUrl;
+    }
 
     public static async Task<object> ListBranches(ListBranchesArgs _)
     {
@@ -81,11 +122,8 @@ public static class PrTools
 
     public static Task<object> ProposePrReview(ProposePrReviewArgs args)
     {
-        var proposal = new PrReviewProposal(
-            args.PrNumber,
-            args.Verdict,
-            args.Summary,
-            args.Comments.Count);
+        _pendingReview = new SubmitPrReviewArgs(args.PrNumber, args.HeadSha, args.Verdict, args.Summary, args.Comments);
+        var proposal = new PrReviewProposal(args.PrNumber, args.Verdict, args.Summary, args.Comments.Count);
         _reviewCapture?.Invoke(proposal);
         return Task.FromResult<object>(new
         {
@@ -108,11 +146,9 @@ public static class PrTools
 
     public static Task<object> ProposeCodeChange(ProposeCodeChangeArgs args)
     {
-        var preview = args.Content.Length > 500
-            ? args.Content[..500] + "\n..."
-            : args.Content;
-        var proposal = new CodeChangeProposal(
-            args.Branch, args.FilePath, args.CommitMessage, args.Rationale, preview);
+        _pendingCodeChanges.Add(new PushFileArgs(args.Branch, args.FilePath, args.Content, args.CommitMessage));
+        var preview = args.Content.Length > 500 ? args.Content[..500] + "\n..." : args.Content;
+        var proposal = new CodeChangeProposal(args.Branch, args.FilePath, args.CommitMessage, args.Rationale, preview);
         _codeChangeCapture?.Invoke(proposal);
         return Task.FromResult<object>(new
         {
@@ -131,6 +167,7 @@ public static class PrTools
 
     public static Task<object> ProposePullRequest(ProposePrArgs args)
     {
+        _pendingPr = new CreatePrArgs(args.Title, args.Body, args.HeadBranch, args.BaseBranch);
         var proposal = new PrProposal(args.Title, args.Body, args.HeadBranch, args.BaseBranch);
         _prCapture?.Invoke(proposal);
         return Task.FromResult<object>(new

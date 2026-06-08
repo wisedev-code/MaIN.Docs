@@ -22,3 +22,11 @@ public record ChatResponse(string Text, List<ToolUsage> ToolsUsed, int Estimated
     PlanProposal? PlanProposed = null,
     PrReviewProposal? ReviewProposed = null, CodeChangeProposal? CodeChangeProposed = null,
     PrProposal? PrProposed = null, string? PrUrl = null);
+
+// Ensemble flow models
+public record EnsembleDesignRequest(string Message, List<HistoryMessage> History);
+public record EnsembleCodeRequest(string OriginalMessage, string DesignContent);
+public record EnsembleReviewRequest(string OriginalMessage, string DesignContent, string CodeContent, string BranchName);
+public record EnsembleCodeResponse(string Text, List<ToolUsage> ToolsUsed, int EstimatedTokens,
+    string BranchName, int FilesChanged,
+    CodeChangeProposal? CodeChangeProposed = null, PrProposal? PrProposed = null);

@@ -12,6 +12,90 @@ public static class ChatEndpoints
     {
         app.MapPost("/api/chat/complete", HandleChat)
            .RequireRateLimiting("chat");
+
+        app.MapPost("/api/confirm/review", async () =>
+        {
+            if (!PrTools.HasPendingReview)
+                return Results.BadRequest("No pending review to submit.");
+            var url = await PrTools.SubmitPendingReview();
+            return Results.Ok(new { url });
+        });
+
+        app.MapPost("/api/confirm/code-change", async () =>
+        {
+            if (!PrTools.HasPendingCodeChange)
+                return Results.BadRequest("No pending code change to push.");
+            var pushed = await PrTools.ExecuteAllPendingCodeChanges();
+            return Results.Ok(new { pushed = true, filesChanged = pushed.Count });
+        });
+
+        app.MapPost("/api/confirm/pr", async () =>
+        {
+            if (!PrTools.HasPendingPr)
+                return Results.BadRequest("No pending pull request to create.");
+            var url = await PrTools.ExecutePendingPr();
+            return Results.Ok(new { url });
+        });
+
+        app.MapPost("/api/ensemble/design", async (
+            EnsembleDesignRequest req,
+            DocsAgentOrchestrator orchestrator,
+            CancellationToken ct) =>
+        {
+            var messages = new[]
+            {
+                new Message { Role = "User", Content = req.Message, Type = MessageType.NotSet, Time = DateTime.UtcNow }
+            };
+            try
+            {
+                var result = await orchestrator.ProcessEnsembleDesignAsync(messages, ct);
+                return Results.Ok(new ChatResponse(result.Content, result.ToolsUsed, result.EstimatedTokens,
+                    null, null, result.IssueProposed, result.IssueUrl, result.PlanProposed));
+            }
+            catch (TimeoutException ex)
+            {
+                return Results.Problem(title: "Agent busy", detail: ex.Message, statusCode: StatusCodes.Status503ServiceUnavailable);
+            }
+        }).RequireRateLimiting("chat");
+
+        app.MapPost("/api/ensemble/code", async (
+            EnsembleCodeRequest req,
+            DocsAgentOrchestrator orchestrator,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var (result, branchName, filesChanged) = await orchestrator.ProcessEnsembleCodeAsync(
+                    req.OriginalMessage, req.DesignContent, ct);
+                return Results.Ok(new EnsembleCodeResponse(
+                    result.Content, result.ToolsUsed, result.EstimatedTokens,
+                    branchName, filesChanged, result.CodeChangeProposed, result.PrProposed));
+            }
+            catch (TimeoutException ex)
+            {
+                return Results.Problem(title: "Agent busy", detail: ex.Message, statusCode: StatusCodes.Status503ServiceUnavailable);
+            }
+        }).RequireRateLimiting("chat");
+
+        app.MapPost("/api/ensemble/review", async (
+            EnsembleReviewRequest req,
+            DocsAgentOrchestrator orchestrator,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var result = await orchestrator.ProcessEnsembleReviewAsync(
+                    req.OriginalMessage, req.DesignContent, req.CodeContent, req.BranchName, ct);
+                return Results.Ok(new ChatResponse(
+                    result.Content, result.ToolsUsed, result.EstimatedTokens,
+                    null, null, null, null, null,
+                    result.ReviewProposed, result.CodeChangeProposed, result.PrProposed, result.PrUrl));
+            }
+            catch (TimeoutException ex)
+            {
+                return Results.Problem(title: "Agent busy", detail: ex.Message, statusCode: StatusCodes.Status503ServiceUnavailable);
+            }
+        }).RequireRateLimiting("chat");
     }
 
     private static async Task<IResult> HandleChat(

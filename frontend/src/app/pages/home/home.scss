@@ -1318,7 +1318,98 @@
   text-overflow: ellipsis;
 }
 
+// ── Review submitted toast ────────────────────────────
+.review-success-toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 1.5rem 0.75rem;
+  padding: 12px 14px 12px 12px;
+  background: rgba(74, 222, 128, 0.07);
+  border: 1px solid rgba(74, 222, 128, 0.25);
+  border-left: 3px solid #4ade80;
+  border-radius: var(--radius-md);
+  animation: promptSlideUp 0.3s cubic-bezier(0.34, 1.15, 0.64, 1) both;
+
+  .rst-icon {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(74, 222, 128, 0.12);
+    border: 1px solid rgba(74, 222, 128, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #4ade80;
+  }
+
+  .rst-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .rst-title {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #4ade80;
+  }
+
+  .rst-meta {
+    font-size: 11px;
+    color: var(--text-subtle);
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.3px;
+  }
+
+  .rst-link {
+    flex-shrink: 0;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: #4ade80;
+    text-decoration: none;
+    padding: 4px 10px;
+    border: 1px solid rgba(74, 222, 128, 0.3);
+    border-radius: var(--radius-pill);
+    transition: all 0.15s ease;
+    white-space: nowrap;
+
+    &:hover {
+      background: rgba(74, 222, 128, 0.12);
+      border-color: rgba(74, 222, 128, 0.5);
+    }
+  }
+
+  .rst-close {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-subtle);
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    border-radius: 4px;
+    transition: color 0.15s ease;
+
+    &:hover { color: var(--text); }
+  }
+}
+
 // ── PR created result card ─────────────────────────────
+.review-card {
+  @extend .pr-card;
+
+  .rv-icon {
+    color: #4ade80;
+    border-color: rgba(74, 222, 128, 0.3);
+    background: rgba(74, 222, 128, 0.08);
+  }
+}
+
 .pr-card {
   display: flex;
   align-items: center;
@@ -1347,4 +1438,195 @@
       box-shadow: 0 0 10px var(--accent-glow-strong);
     }
   }
+}
+
+// ── Flow agent info panel ──────────────────────────────
+.flow-info-panel {
+  margin: 0 auto 0.5rem;
+  max-width: 540px;
+  padding: 16px 18px;
+  background: rgba(99, 102, 241, 0.04);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: var(--radius-md);
+  animation: fadeReveal 0.35s ease both;
+}
+
+.flow-stages {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  margin-bottom: 12px;
+}
+
+.fsi-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+
+  .fsi-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    font-style: italic;
+    color: #818cf8;
+  }
+
+  .fsi-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: #818cf8;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .fsi-desc {
+    font-size: 11px;
+    color: var(--text-subtle);
+    line-height: 1.5;
+    max-width: 130px;
+  }
+}
+
+.fsi-arrow {
+  flex-shrink: 0;
+  padding: 0 8px;
+  padding-top: 8px;
+  color: rgba(99, 102, 241, 0.4);
+  font-size: 16px;
+  font-weight: 300;
+}
+
+.flow-info-hint {
+  font-size: 11px;
+  color: var(--text-subtle);
+  text-align: center;
+  margin: 0;
+}
+
+// ── Ensemble step indicator ────────────────────────────
+.ensemble-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 10px 24px;
+  background: rgba(0, 0, 0, 0.15);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.es-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+
+  .es-circle {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border);
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    font-style: italic;
+    color: var(--text-subtle);
+    transition: all 0.3s ease;
+  }
+
+  .es-label {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--text-subtle);
+    font-family: 'JetBrains Mono', monospace;
+    transition: color 0.3s ease;
+  }
+
+  &.active {
+    .es-circle {
+      border-color: var(--accent);
+      background: var(--accent-glow);
+      color: var(--accent);
+      box-shadow: 0 0 10px var(--accent-glow);
+      animation: esCirclePulse 2s ease-in-out infinite;
+    }
+    .es-label { color: var(--accent); }
+  }
+
+  &.done {
+    .es-circle {
+      border-color: rgba(74, 222, 128, 0.4);
+      background: rgba(74, 222, 128, 0.08);
+      color: #4ade80;
+    }
+    .es-label { color: #4ade80; }
+  }
+}
+
+@keyframes esCirclePulse {
+  0%, 100% { box-shadow: 0 0 8px var(--accent-glow); }
+  50%       { box-shadow: 0 0 16px var(--accent-glow-strong), 0 0 28px var(--accent-glow); }
+}
+
+.es-connector {
+  width: 48px;
+  height: 1.5px;
+  background: var(--border);
+  margin: 0 4px;
+  margin-bottom: 10px;
+  transition: background 0.5s ease;
+  flex-shrink: 0;
+
+  &.filled { background: #4ade80; }
+}
+
+// ── Ensemble accept card ───────────────────────────────
+.ensemble-accept {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 1.5rem 0.5rem;
+  padding: 12px 14px;
+  background: rgba(99, 102, 241, 0.05);
+  border: 1px solid rgba(99, 102, 241, 0.22);
+  border-left: 3px solid #818cf8;
+  border-radius: var(--radius-md);
+  animation: promptSlideUp 0.25s cubic-bezier(0.34, 1.15, 0.64, 1) both;
+
+  .ea-stage {
+    flex: 1;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: #a5b4fc;
+    min-width: 0;
+  }
+}
+
+// ── Flow agent pill ────────────────────────────────────
+.agent-pill.active[data-agent="flow"],
+.agent-pill[data-agent="flow"].active {
+  border-color: #818cf8;
+  color: #818cf8;
+  background: rgba(99, 102, 241, 0.08);
+  box-shadow: 0 0 14px rgba(99, 102, 241, 0.2);
 }

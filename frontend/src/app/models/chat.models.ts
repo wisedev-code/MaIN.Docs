@@ -68,10 +68,13 @@ export interface ChatMessage {
   issueUrl?: string;
   planProposed?: PlanProposal;
   reviewProposed?: PrReviewProposal;
+  reviewUrl?: string;
   codeChangeProposed?: CodeChangeProposal;
   prProposed?: PrProposal;
   prUrl?: string;
   attachments?: Attachment[];
+  agentId?: string;
+  branchName?: string;
 }
 
 export interface AgentCapability {
@@ -135,5 +138,20 @@ export const AGENTS: AgentDefinition[] = [
     ],
     tools: ['GitHub', 'Doc search', 'Static analysis', 'Dotnet skills'],
     bestFor: ['Debugging issues', 'Code quality', 'Docker / deployment', 'Configuration errors'],
+  },
+  {
+    id: 'flow',
+    name: 'Flow',
+    tagline: 'Design → Code → Review pipeline',
+    description: 'Chains all three agents into a guided end-to-end pipeline. Design builds the plan, Code implements it, Review audits and opens a PR.',
+    icon: '⟡',
+    capabilities: [
+      { label: 'Architecture plan', description: '' },
+      { label: 'Code generation',   description: '' },
+      { label: 'Code review',       description: '' },
+      { label: 'Pull request',      description: '' },
+    ],
+    tools: ['All agents combined'],
+    bestFor: ['Feature implementation', 'End-to-end changes', 'Multi-file modifications', 'PR workflow'],
   },
 ];

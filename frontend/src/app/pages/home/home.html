@@ -14,6 +14,49 @@
           <span class="hero-sub-accent">MaIN.NET</span>
           <span class="hero-sub-dim">— code, architecture, or debugging.</span>
         </p>
+        @if (selectedAgent().id === 'flow') {
+          <div class="flow-info-panel">
+            <div class="flow-stages">
+              <div class="fsi-stage">
+                <div class="fsi-icon">Δ</div>
+                <span class="fsi-label">Design</span>
+                <span class="fsi-desc">Analyses your request and produces a concrete implementation plan</span>
+              </div>
+              <div class="fsi-arrow">→</div>
+              <div class="fsi-stage">
+                <div class="fsi-icon">#</div>
+                <span class="fsi-label">Code</span>
+                <span class="fsi-desc">Reads the codebase and proposes precise file changes on a new branch</span>
+              </div>
+              <div class="fsi-arrow">→</div>
+              <div class="fsi-stage">
+                <div class="fsi-icon">~</div>
+                <span class="fsi-label">Review</span>
+                <span class="fsi-desc">Audits the changes and opens a pull request to main</span>
+              </div>
+            </div>
+            <p class="flow-info-hint">Each stage completes before the next begins. You approve every handoff.</p>
+          </div>
+        }
+      </div>
+    }
+
+    @if (ensembleStep() !== 'idle') {
+      <div class="ensemble-steps">
+        <div class="es-step" [class.active]="ensembleStep() === 'design'" [class.done]="isDone('design')">
+          <div class="es-circle">Δ</div>
+          <span class="es-label">Design</span>
+        </div>
+        <div class="es-connector" [class.filled]="isDone('design')"></div>
+        <div class="es-step" [class.active]="ensembleStep() === 'code'" [class.done]="isDone('code')">
+          <div class="es-circle">#</div>
+          <span class="es-label">Code</span>
+        </div>
+        <div class="es-connector" [class.filled]="isDone('code')"></div>
+        <div class="es-step" [class.active]="ensembleStep() === 'review' || ensembleStep() === 'done'" [class.done]="isDone('review')">
+          <div class="es-circle">~</div>
+          <span class="es-label">Review</span>
+        </div>
       </div>
     }
 
@@ -22,11 +65,11 @@
         @for (msg of messages(); track $index) {
           <div class="message" [class.user]="msg.role === 'user'" [class.assistant]="msg.role === 'assistant'">
             @if (msg.role === 'assistant') {
-              <div class="msg-avatar">{{ selectedAgent().icon }}</div>
+              <div class="msg-avatar">{{ getAgentById(msg.agentId).icon }}</div>
             }
             <div class="msg-body">
               @if (msg.role === 'assistant') {
-                <div class="msg-agent-name">{{ selectedAgent().name }}</div>
+                <div class="msg-agent-name">{{ getAgentById(msg.agentId).name }}</div>
               }
 
               @if (msg.role === 'user' && msg.attachments && msg.attachments.length > 0) {
@@ -140,6 +183,27 @@
                 </a>
               }
 
+              @if (msg.reviewUrl) {
+                <a class="review-card" [href]="msg.reviewUrl" target="_blank" rel="noopener noreferrer">
+                  <div class="ic-icon rv-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                    </svg>
+                  </div>
+                  <div class="ic-info">
+                    <span class="ic-title">Review submitted to GitHub</span>
+                    <span class="ic-meta">wisedev-code/MaIN.NET · view on GitHub</span>
+                  </div>
+                  <div class="ic-open-btn">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                      <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                    </svg>
+                    View
+                  </div>
+                </a>
+              }
+
               @if (msg.planProposed) {
                 <div class="plan-card">
                   <div class="plan-header">
@@ -233,6 +297,37 @@
         <div class="ap-actions">
           <button class="ap-btn ap-yes" (click)="requestReview()">Submit Review</button>
           <button class="ap-btn ap-no"  (click)="dismissReviewPrompt()">Dismiss</button>
+        </div>
+      </div>
+    }
+
+    @if (reviewSuccess()) {
+      <div class="review-success-toast">
+        <div class="rst-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+        </div>
+        <div class="rst-body">
+          <span class="rst-title">Review submitted</span>
+          <span class="rst-meta">PR #{{ reviewSuccess()!.prNumber }} · {{ reviewSuccess()!.verdict }}</span>
+        </div>
+        <a class="rst-link" [href]="reviewSuccess()!.url" target="_blank" rel="noopener noreferrer">View on GitHub</a>
+        <button class="rst-close" (click)="dismissReviewSuccess()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+    }
+
+    @if (showEnsembleAccept()) {
+      <div class="ensemble-accept">
+        <div class="ea-stage">{{ currentEnsembleStageLabel() }}</div>
+        <div class="ap-actions">
+          <button class="ap-btn ap-yes" (click)="acceptEnsembleStage()">{{ nextEnsembleStageLabel() }}</button>
+          <button class="ap-btn ap-no" (click)="dismissEnsembleFlow()">Cancel flow</button>
         </div>
       </div>
     }
