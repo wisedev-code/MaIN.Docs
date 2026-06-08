@@ -9,12 +9,16 @@
       <div class="hero animate-in">
         <div class="hero-badge">AI-Powered Documentation</div>
         <h1 class="hero-title">What can I help you build?</h1>
-        <p class="hero-sub">Ask anything about MaIN.NET — code, architecture, or debugging.</p>
+        <p class="hero-sub">
+          <span>Ask anything about</span>
+          <span class="hero-sub-accent">MaIN.NET</span>
+          <span class="hero-sub-dim">— code, architecture, or debugging.</span>
+        </p>
       </div>
     }
 
     @if (hasMessages()) {
-      <div class="messages" #messagesEl>
+      <div class="messages" #messagesEl (click)="onMessagesClick($event)">
         @for (msg of messages(); track $index) {
           <div class="message" [class.user]="msg.role === 'user'" [class.assistant]="msg.role === 'assistant'">
             @if (msg.role === 'assistant') {
@@ -23,6 +27,24 @@
             <div class="msg-body">
               @if (msg.role === 'assistant') {
                 <div class="msg-agent-name">{{ selectedAgent().name }}</div>
+              }
+
+              @if (msg.role === 'user' && msg.attachments && msg.attachments.length > 0) {
+                <div class="msg-attachments">
+                  @for (att of msg.attachments; track att.id) {
+                    @if (att.type === 'image') {
+                      <img class="msg-img" [src]="att.dataUrl" [alt]="att.name" />
+                    } @else {
+                      <div class="msg-file-chip">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                          <polyline points="14 2 14 8 20 8"/>
+                        </svg>
+                        {{ att.name }}
+                      </div>
+                    }
+                  }
+                </div>
               }
 
               @if (!msg.streaming && msg.role === 'assistant' && msg.toolsUsed && msg.toolsUsed.length > 0) {
@@ -76,6 +98,82 @@
                 </a>
               }
 
+              @if (msg.issueUrl) {
+                <a class="issue-card" [href]="msg.issueUrl" target="_blank" rel="noopener noreferrer">
+                  <div class="ic-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/>
+                    </svg>
+                  </div>
+                  <div class="ic-info">
+                    <span class="ic-title">{{ msg.issueProposed?.title ?? 'GitHub Issue' }}</span>
+                    <span class="ic-meta">wisedev-code/MaIN.NET · proposal · auto-closes in 3 days</span>
+                  </div>
+                  <div class="ic-open-btn">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                      <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                    </svg>
+                    Open
+                  </div>
+                </a>
+              }
+
+              @if (msg.prUrl) {
+                <a class="pr-card" [href]="msg.prUrl" target="_blank" rel="noopener noreferrer">
+                  <div class="ic-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/>
+                    </svg>
+                  </div>
+                  <div class="ic-info">
+                    <span class="ic-title">{{ msg.prProposed?.title ?? 'Pull Request' }}</span>
+                    <span class="ic-meta">{{ msg.prProposed?.headBranch }} → {{ msg.prProposed?.baseBranch }} · wisedev-code/MaIN.NET</span>
+                  </div>
+                  <div class="ic-open-btn">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                      <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                    </svg>
+                    Open PR
+                  </div>
+                </a>
+              }
+
+              @if (msg.planProposed) {
+                <div class="plan-card">
+                  <div class="plan-header">
+                    <div class="plan-badge">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+                        <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+                      </svg>
+                      Plan
+                    </div>
+                    <span class="plan-title">{{ msg.planProposed.title }}</span>
+                  </div>
+                  @if (msg.planProposed.context) {
+                    <p class="plan-context">{{ msg.planProposed.context }}</p>
+                  }
+                  <ol class="plan-steps">
+                    @for (step of msg.planProposed.steps; track $index) {
+                      <li class="plan-step">
+                        <div class="ps-num">{{ $index + 1 }}</div>
+                        <div class="ps-body">
+                          <span class="ps-title">{{ step.title }}</span>
+                          @if (step.description) {
+                            <span class="ps-desc">{{ step.description }}</span>
+                          }
+                          @if (step.codeSnippet) {
+                            <div class="ps-code" [innerHTML]="renderStepCode(step.codeSnippet, step.language)"></div>
+                          }
+                        </div>
+                      </li>
+                    }
+                  </ol>
+                </div>
+              }
+
               @if (msg.streaming && msg.content.length === 0) {
                 <div class="inference-indicator">
                   <div class="inf-bars">
@@ -86,7 +184,7 @@
                   <span class="inf-face">{{ currentFace() }}</span>
                 </div>
               } @else {
-                <div class="msg-content" [innerHTML]="renderMarkdown(msg.content)"></div>
+                <div class="msg-content" [innerHTML]="renderMarkdown(msg.content, msg.artifactUrl)"></div>
                 @if (msg.streaming) {
                   <span class="cursor">▌</span>
                 }
@@ -104,6 +202,74 @@
         <div class="ap-actions">
           <button class="ap-btn ap-yes" (click)="requestArtifact()">Generate</button>
           <button class="ap-btn ap-no"  (click)="dismissArtifactPrompt()">Dismiss</button>
+        </div>
+      </div>
+    }
+
+    @if (showIssuePrompt()) {
+      <div class="issue-prompt">
+        <div class="ip-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/>
+          </svg>
+        </div>
+        <span class="ip-text">Create issue: <strong>"{{ issueProposal()?.title }}"</strong></span>
+        <div class="ip-actions">
+          <button class="ap-btn ap-yes" (click)="requestIssue()">Create Issue</button>
+          <button class="ap-btn ap-no"  (click)="dismissIssuePrompt()">Dismiss</button>
+        </div>
+      </div>
+    }
+
+    @if (showReviewPrompt()) {
+      <div class="review-prompt">
+        <div class="rp-verdict" [class.approve]="reviewProposal()?.verdict === 'APPROVE'" [class.changes]="reviewProposal()?.verdict === 'REQUEST_CHANGES'">
+          {{ reviewProposal()?.verdict }}
+        </div>
+        <div class="rp-body">
+          <span class="rp-title">PR #{{ reviewProposal()?.prNumber }} review ready</span>
+          <span class="rp-meta">{{ reviewProposal()?.commentCount }} comment{{ reviewProposal()?.commentCount !== 1 ? 's' : '' }} · {{ reviewProposal()?.summary }}</span>
+        </div>
+        <div class="ap-actions">
+          <button class="ap-btn ap-yes" (click)="requestReview()">Submit Review</button>
+          <button class="ap-btn ap-no"  (click)="dismissReviewPrompt()">Dismiss</button>
+        </div>
+      </div>
+    }
+
+    @if (showCodeChangePrompt()) {
+      <div class="code-change-prompt">
+        <div class="ccp-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+          </svg>
+        </div>
+        <div class="rp-body">
+          <span class="rp-title">{{ codeChangeProposal()?.filePath }}</span>
+          <span class="rp-meta">→ {{ codeChangeProposal()?.branch }} · {{ codeChangeProposal()?.commitMessage }}</span>
+        </div>
+        <div class="ap-actions">
+          <button class="ap-btn ap-yes" (click)="requestCodeChange()">Push to Branch</button>
+          <button class="ap-btn ap-no"  (click)="dismissCodeChangePrompt()">Dismiss</button>
+        </div>
+      </div>
+    }
+
+    @if (showPrPrompt()) {
+      <div class="pr-prompt">
+        <div class="ccp-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/>
+            <line x1="6" y1="9" x2="6" y2="21"/>
+          </svg>
+        </div>
+        <div class="rp-body">
+          <span class="rp-title">{{ prProposal()?.title }}</span>
+          <span class="rp-meta">{{ prProposal()?.headBranch }} → {{ prProposal()?.baseBranch }}</span>
+        </div>
+        <div class="ap-actions">
+          <button class="ap-btn ap-yes" (click)="requestPr()">Create PR</button>
+          <button class="ap-btn ap-no"  (click)="dismissPrPrompt()">Dismiss</button>
         </div>
       </div>
     }
@@ -150,36 +316,69 @@
         </div>
       </div>
 
-      <div class="input-bar">
-        <textarea
-          class="input-field"
-          [value]="inputText()"
-          (input)="inputText.set($any($event.target).value)"
-          (keydown)="onKeydown($event)"
-          [placeholder]="'Ask the ' + selectedAgent().name + ' agent...'"
-          rows="1"
-          [disabled]="isStreaming()"
-        ></textarea>
-        <div class="input-actions">
-          @if (hasMessages()) {
-            <button class="action-btn clear-btn" (click)="clear()" title="Clear">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
-                <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+      <div class="input-bar" (paste)="onPaste($event)">
+        <input #fileInputEl type="file" class="file-input-hidden"
+          accept="image/*,.pdf,.txt,.md,.cs,.json,.xml,.yaml,.yml"
+          multiple (change)="onFileSelect($event)" />
+
+        @if (attachments().length > 0) {
+          <div class="attach-chips">
+            @for (att of attachments(); track att.id) {
+              <div class="attach-chip" [class.chip-image]="att.type === 'image'">
+                @if (att.type === 'image') {
+                  <img class="chip-thumb" [src]="att.dataUrl" [alt]="att.name" />
+                } @else {
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                  </svg>
+                }
+                <span class="chip-name">{{ att.name }}</span>
+                <button class="chip-remove" (click)="removeAttachment(att.id)" title="Remove">
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+            }
+          </div>
+        }
+
+        <div class="input-row">
+          <textarea
+            #textareaEl
+            class="input-field"
+            [value]="inputText()"
+            (input)="inputText.set($any($event.target).value); autoResize($event)"
+            (keydown)="onKeydown($event)"
+            [placeholder]="'Ask the ' + selectedAgent().name + ' agent...'"
+            rows="1"
+            [disabled]="isStreaming()"
+          ></textarea>
+          <div class="input-actions">
+            <button class="action-btn attach-btn" (click)="openFileDialog()" title="Attach file or image" [disabled]="isStreaming()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
               </svg>
             </button>
-          }
-          @if (isStreaming()) {
-            <button class="action-btn stop-btn" (click)="stop()" title="Stop">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
-            </button>
-          } @else {
-            <button class="action-btn send-btn" (click)="send()" [disabled]="!inputText().trim()" title="Send">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-              </svg>
-            </button>
-          }
+            @if (hasMessages()) {
+              <button class="action-btn clear-btn" (click)="clear()" title="Clear">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
+                  <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+                </svg>
+              </button>
+            }
+            @if (isStreaming()) {
+              <button class="action-btn stop-btn" (click)="stop()" title="Stop">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+              </button>
+            } @else {
+              <button class="action-btn send-btn" (click)="send()" [disabled]="!inputText().trim() && attachments().length === 0" title="Send">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+              </button>
+            }
+          </div>
         </div>
       </div>
 

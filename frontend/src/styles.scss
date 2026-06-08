@@ -6,7 +6,8 @@
   --bg-surface:         #0d0d1a;
   --bg-card:            #111128;
   --bg-glass:           rgba(11, 11, 26, 0.75);
-  --user-msg-bg:        linear-gradient(135deg, #111128 0%, rgba(17, 17, 40, 0.9) 100%);
+  --user-msg-bg:        rgba(0, 255, 204, 0.04);
+  --user-msg-border:    rgba(0, 255, 204, 0.1);
   --accent:             #00ffcc;
   --accent-dim:         #00c49a;
   --accent-glow:        rgba(0, 255, 204, 0.12);
@@ -34,6 +35,7 @@
   --bg-card:            #eeeef6;
   --bg-glass:           rgba(255, 255, 255, 0.88);
   --user-msg-bg:        linear-gradient(135deg, #eeeef6 0%, #e8e8f2 100%);
+  --user-msg-border:    rgba(0, 0, 0, 0.08);
   --accent:             #0099a8;
   --accent-dim:         #007c8a;
   --accent-glow:        rgba(0, 153, 168, 0.1);
@@ -96,6 +98,58 @@ h1 { font-size: 2rem; }
 h2 { font-size: 1.4rem; }
 h3 { font-size: 1.1rem; }
 ul, ol { padding-left: 1.5rem; margin-bottom: 0.75rem; }
+
+// ── Markdown body — docs tables ───────────────────────────────────────────────
+// These live in global CSS because the docs component renders via [innerHTML],
+// which bypasses Angular's emulated encapsulation.
+
+.markdown-body {
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.25rem 0 2rem;
+    font-size: 13.5px;
+    font-family: 'Inter', sans-serif;
+  }
+
+  table th {
+    background: var(--bg-card);
+    padding: 9px 16px;
+    text-align: left;
+    font-weight: 700;
+    color: var(--text-muted);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    white-space: nowrap;
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    border-bottom-color: var(--border-accent);
+  }
+
+  table td {
+    padding: 9px 16px;
+    color: var(--text);
+    vertical-align: top;
+    line-height: 1.65;
+    border: 1px solid var(--border);
+  }
+
+  table tbody tr:nth-child(even) td { background: var(--bg-card); }
+  table tbody tr:hover td { background: var(--accent-glow); }
+
+  // Inline code inside table cells — strip the global badge look so it
+  // doesn't balloon column widths. Show it in accent color instead.
+  table td code {
+    background: none;
+    border: none;
+    padding: 0;
+    border-radius: 0;
+    color: var(--accent);
+    font-size: 0.875em;
+    white-space: nowrap;
+  }
+}
 
 // ── Syntax highlighting (hljs) ────────────────────────────────────────────────
 .hljs             { color: #abb2bf; background: transparent; }

@@ -1,3 +1,11 @@
+export interface Attachment {
+  id: string;
+  name: string;
+  type: 'image' | 'file';
+  dataUrl: string;
+  mimeType: string;
+}
+
 export interface ToolUsage {
   name: string;
   calls: number;
@@ -8,6 +16,46 @@ export interface ArtifactProposal {
   description: string;
 }
 
+export interface IssueProposal {
+  title: string;
+  body: string;
+}
+
+export interface PlanStep {
+  title: string;
+  description: string;
+  codeSnippet?: string;
+  language?: string;
+}
+
+export interface PlanProposal {
+  title: string;
+  context: string;
+  steps: PlanStep[];
+}
+
+export interface PrReviewProposal {
+  prNumber: number;
+  verdict: string;
+  summary: string;
+  commentCount: number;
+}
+
+export interface CodeChangeProposal {
+  branch: string;
+  filePath: string;
+  commitMessage: string;
+  rationale: string;
+  preview: string;
+}
+
+export interface PrProposal {
+  title: string;
+  body: string;
+  headBranch: string;
+  baseBranch: string;
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -16,6 +64,14 @@ export interface ChatMessage {
   estimatedTokens?: number;
   artifactUrl?: string;
   artifactProposed?: ArtifactProposal;
+  issueProposed?: IssueProposal;
+  issueUrl?: string;
+  planProposed?: PlanProposal;
+  reviewProposed?: PrReviewProposal;
+  codeChangeProposed?: CodeChangeProposal;
+  prProposed?: PrProposal;
+  prUrl?: string;
+  attachments?: Attachment[];
 }
 
 export interface AgentCapability {

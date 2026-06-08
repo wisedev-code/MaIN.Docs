@@ -15,17 +15,33 @@
     </div>
 
     <nav class="sidebar-nav">
-      @for (section of filteredSections(); track section.title) {
-        <div class="nav-section">
-          <div class="section-title">{{ section.title }}</div>
-          @for (entry of section.entries; track entry.slug) {
-            <a
-              class="nav-entry"
-              [class.active]="currentSlug() === entry.slug"
-              (click)="navigate(entry.slug)"
-            >{{ entry.title }}</a>
-          }
-        </div>
+      @if (searchQuery().trim().length > 0) {
+        @if (searchResults().length > 0) {
+          <div class="nav-section">
+            <div class="section-title">Results</div>
+            @for (result of searchResults(); track result.slug + result.anchor) {
+              <button class="nav-entry nav-heading-result" (click)="selectHeading(result)">
+                <span class="heading-result-title">{{ result.heading }}</span>
+                <span class="heading-result-page">{{ result.pageTitle }}</span>
+              </button>
+            }
+          </div>
+        } @else {
+          <p class="sidebar-empty">No results for "{{ searchQuery() }}"</p>
+        }
+      } @else {
+        @for (section of sections(); track section.title) {
+          <div class="nav-section">
+            <div class="section-title">{{ section.title }}</div>
+            @for (entry of section.entries; track entry.slug) {
+              <a
+                class="nav-entry"
+                [class.active]="currentSlug() === entry.slug"
+                (click)="navigate(entry.slug)"
+              >{{ entry.title }}</a>
+            }
+          </div>
+        }
       }
     </nav>
   </aside>

@@ -35,7 +35,17 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddSingleton<DocsLoader>();
 builder.Services.AddSingleton<ArtifactService>();
+builder.Services.AddHttpClient<GitHubService>((sp, client) =>
+{
+    var cfg = sp.GetRequiredService<IConfiguration>();
+    client.BaseAddress = new Uri("https://api.github.com");
+    client.DefaultRequestHeaders.Authorization =
+        new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", cfg["GITHUB_TOKEN"]);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("MaIN.Docs/1.0");
+    client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
+});
 builder.Services.AddSingleton<DocsAgentOrchestrator>();
+builder.Services.AddHostedService<IssueCleanupService>();
 
 var app = builder.Build();
 

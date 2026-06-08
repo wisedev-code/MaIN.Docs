@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { ArtifactProposal, ChatMessage, ToolUsage } from '../models/chat.models';
+import { ArtifactProposal, IssueProposal, PlanProposal, PrReviewProposal, CodeChangeProposal, PrProposal, ChatMessage, ToolUsage } from '../models/chat.models';
 
 const API_URL = '/api/chat/complete';
 const API_KEY = (window as any).__env?.apiKey ?? 'change-me-before-deploy';
@@ -12,6 +12,13 @@ interface ChatApiResponse {
   estimatedTokens: number;
   artifactUrl?: string;
   artifactProposed?: ArtifactProposal;
+  issueProposed?: IssueProposal;
+  issueUrl?: string;
+  planProposed?: PlanProposal;
+  reviewProposed?: PrReviewProposal;
+  codeChangeProposed?: CodeChangeProposal;
+  prProposed?: PrProposal;
+  prUrl?: string;
 }
 
 export interface AgentResponse {
@@ -20,6 +27,13 @@ export interface AgentResponse {
   estimatedTokens: number;
   artifactUrl?: string;
   artifactProposed?: ArtifactProposal;
+  issueProposed?: IssueProposal;
+  issueUrl?: string;
+  planProposed?: PlanProposal;
+  reviewProposed?: PrReviewProposal;
+  codeChangeProposed?: CodeChangeProposal;
+  prProposed?: PrProposal;
+  prUrl?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -51,6 +65,6 @@ export class ChatService {
     );
 
     this.abortController = null;
-    return { content: response.text, toolsUsed: response.toolsUsed, estimatedTokens: response.estimatedTokens, artifactUrl: response.artifactUrl, artifactProposed: response.artifactProposed };
+    return { content: response.text, toolsUsed: response.toolsUsed, estimatedTokens: response.estimatedTokens, artifactUrl: response.artifactUrl, artifactProposed: response.artifactProposed, issueProposed: response.issueProposed, issueUrl: response.issueUrl, planProposed: response.planProposed, reviewProposed: response.reviewProposed, codeChangeProposed: response.codeChangeProposed, prProposed: response.prProposed, prUrl: response.prUrl };
   }
 }

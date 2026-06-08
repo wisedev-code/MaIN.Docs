@@ -1,8 +1,40 @@
 <nav class="navbar">
-  <a routerLink="/" class="brand">
+  <a class="brand" role="button" (click)="onBrandClick()">
     <span class="brand-logo">M.A.I.N</span>
     <span class="brand-suffix">.Docs</span>
   </a>
+
+  <div class="search-wrap">
+    <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="8"/>
+      <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+    <input
+      class="search-input"
+      type="text"
+      placeholder="Search docs…"
+      [value]="query()"
+      (input)="onQueryInput($event)"
+      (keydown)="onKeydown($event)"
+      autocomplete="off"
+      spellcheck="false"
+    />
+    @if (isOpen() && results().length > 0) {
+      <div class="search-dropdown">
+        @for (result of results(); track result.slug + result.title) {
+          <button class="search-result" (click)="selectResult(result)">
+            <span class="result-title">{{ result.heading ?? result.title }}</span>
+            <span class="result-section">{{ result.section }}</span>
+          </button>
+        }
+      </div>
+    }
+    @if (isOpen() && results().length === 0 && query().trim().length > 0) {
+      <div class="search-dropdown">
+        <span class="search-empty">No results for "{{ query() }}"</span>
+      </div>
+    }
+  </div>
 
   <div class="nav-links">
     <a routerLink="/docs" routerLinkActive="active" class="nav-link">Docs</a>
