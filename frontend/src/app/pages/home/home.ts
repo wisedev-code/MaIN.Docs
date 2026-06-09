@@ -20,6 +20,14 @@ hljs.registerLanguage('xml', xml);
 hljs.registerLanguage('json', json);
 hljs.registerLanguage('plaintext', plaintext);
 
+interface SavedConversation {
+  id: string;
+  agentId: string;
+  preview: string;
+  messages: ChatMessage[];
+  timestamp: number;
+}
+
 @Component({
   selector: 'app-home',
   imports: [FormsModule, SlicePipe],
@@ -76,6 +84,8 @@ export class Home implements OnDestroy {
   showEnsembleAccept = signal(false);
   ensembleContext = signal<{ question: string; designContent?: string; codeContent?: string; branchName?: string } | null>(null);
 
+  recentConversations = signal<SavedConversation[]>([]);
+
   hasMessages = computed(() => this.messages().length > 0);
 
   currentEnsembleStageLabel = computed(() => {
@@ -100,6 +110,7 @@ export class Home implements OnDestroy {
 
   constructor(private chatService: ChatService, private appStateService: AppStateService, private ngZone: NgZone) {
     this.chatResetSnapshot = this.appStateService.chatReset();
+    this.loadConversationsFromStorage();
     effect(() => {
       const v = this.appStateService.chatReset();
       if (v > this.chatResetSnapshot) {
@@ -110,11 +121,8 @@ export class Home implements OnDestroy {
   }
 
   selectAgent(agent: AgentDefinition) {
-    if (this.selectedAgent().id === 'forge' && agent.id !== 'forge') {
-      this.forgeStage.set('design');
-      this.completedForgeStages.set([]);
-      this.showForgeNextPrompt.set(false);
-    }
+    if (this.selectedAgent().id === agent.id) return;
+    if (this.hasMessages()) this.clear();
     this.selectedAgent.set(agent);
   }
 
@@ -157,9 +165,22 @@ export class Home implements OnDestroy {
     setTimeout(() => this.scrollToBottom(), 60);
 
     try {
-      const response = await this.chatService.sendMessage(this.selectedAgent().id, apiText, history);
-      const msgIndex = this.messages().length - 1;
-      await this.revealWordByWord(response.content, msgIndex, response.toolsUsed, response.estimatedTokens, response.artifactUrl, response.artifactProposed, response.issueProposed, response.issueUrl, response.planProposed, response.reviewProposed, response.codeChangeProposed, response.prProposed, response.prUrl, response.presentedCode, response.reviewPosted);
+      if (isFlow) {
+        this.ensembleStep.set('design');
+        const msgIndex = this.messages().length - 1;
+        const response = await this.chatService.sendEnsembleDesign(rawText, history);
+        await this.revealWordByWord(response.content, msgIndex, response.toolsUsed, response.estimatedTokens,
+          undefined, undefined, response.issueProposed, response.issueUrl, response.planProposed);
+        this.ensembleContext.set({ question: rawText, designContent: response.content });
+        if (response.issueProposed && !response.issueUrl) {
+          this.issueProposal.set(response.issueProposed);
+          this.showIssuePrompt.set(true);
+        }
+        this.showEnsembleAccept.set(true);
+      } else {
+        const response = await this.chatService.sendMessage(this.selectedAgent().id, apiText, history);
+        const msgIndex = this.messages().length - 1;
+        await this.revealWordByWord(response.content, msgIndex, response.toolsUsed, response.estimatedTokens, response.artifactUrl, response.artifactProposed, response.issueProposed, response.issueUrl, response.planProposed, response.reviewProposed, response.codeChangeProposed, response.prProposed, response.prUrl, response.presentedCode, response.reviewPosted);
 
         if (response.artifactProposed && !response.artifactUrl) {
           this.artifactProposal.set(response.artifactProposed);
@@ -181,12 +202,12 @@ export class Home implements OnDestroy {
           this.prProposal.set(response.prProposed);
           this.showPrPrompt.set(true);
         }
-      }
-      if (this.selectedAgent().id === 'forge') {
-        if (this.forgeStage() === 'design' && response.planProposed) {
-          this.showForgeNextPrompt.set(true);
-        } else if (this.forgeStage() === 'code' && (response.presentedCode?.length || response.artifactProposed || response.artifactUrl || response.prProposed)) {
-          this.showForgeNextPrompt.set(true);
+        if (this.selectedAgent().id === 'forge') {
+          if (this.forgeStage() === 'design' && response.planProposed) {
+            this.showForgeNextPrompt.set(true);
+          } else if (this.forgeStage() === 'code' && (response.presentedCode?.length || response.artifactProposed || response.artifactUrl || response.prProposed)) {
+            this.showForgeNextPrompt.set(true);
+          }
         }
       }
     } catch {
@@ -351,7 +372,13 @@ export class Home implements OnDestroy {
   }
 
   async requestPr() {
+    const isForgeReview = this.selectedAgent().id === 'forge' && this.forgeStage() === 'review';
     this.dismissPrPrompt();
+    if (isForgeReview) {
+      this.inputText.set('Confirmed.');
+      this.send();
+      return;
+    }
     try {
       const url = await this.chatService.confirmPr();
       this.messages.update(msgs => {
@@ -404,7 +431,7 @@ export class Home implements OnDestroy {
         this.ensembleContext.update(c => c ? { ...c, codeContent: response.content, branchName: response.branchName } : null);
         await this.revealWordByWord(response.content, msgIndex, response.toolsUsed, response.estimatedTokens,
           undefined, undefined, undefined, undefined, undefined, undefined,
-          response.codeChangeProposed, response.prProposed, undefined, 'code');
+          response.codeChangeProposed, response.prProposed);
         this.showEnsembleAccept.set(true);
       } catch {
         this.messages.update(msgs => {
@@ -431,7 +458,7 @@ export class Home implements OnDestroy {
           ctx.question, ctx.designContent!, ctx.codeContent!, ctx.branchName!);
         await this.revealWordByWord(response.content, msgIndex, response.toolsUsed, response.estimatedTokens,
           undefined, undefined, undefined, undefined, undefined, response.reviewProposed,
-          response.codeChangeProposed, response.prProposed, response.prUrl, 'review');
+          response.codeChangeProposed, response.prProposed, response.prUrl);
         this.ensembleStep.set('done');
 
         if (response.reviewProposed && !response.prUrl) {
@@ -478,12 +505,7 @@ export class Home implements OnDestroy {
     const next = current === 'design' ? 'code' : 'review';
     this.forgeStage.set(next);
     
-    let msg = '';
-    if (next === 'code') {
-      msg = 'The design plan is approved. Proceed to CODE STAGE. Use present_code to show all files — do NOT call propose_code_change or propose_pull_request here, those are REVIEW STAGE tools.';
-    } else {
-      msg = 'The code is ready. Proceed to REVIEW STAGE: verify API usage against the docs, then call propose_code_change for every file and propose_pull_request once. Do not call present_code.';
-    }
+    const msg = next === 'code' ? 'Design approved.' : 'Code complete.';
     
     this.inputText.set(msg);
     this.send();
@@ -514,6 +536,7 @@ export class Home implements OnDestroy {
   }
 
   clear() {
+    this.saveToRecent();
     this.messages.set([]);
     this.showArtifactPrompt.set(false);
     this.artifactProposal.set(null);
@@ -530,6 +553,9 @@ export class Home implements OnDestroy {
     this.forgeStage.set('design');
     this.completedForgeStages.set([]);
     this.showForgeNextPrompt.set(false);
+    this.ensembleStep.set('idle');
+    this.showEnsembleAccept.set(false);
+    this.ensembleContext.set(null);
     this.resetTextareaHeight();
   }
 
@@ -653,6 +679,64 @@ export class Home implements OnDestroy {
         }, 2000);
       }).catch(() => {});
     }
+  }
+
+  back() { this.clear(); }
+
+  revertForgeStage() {
+    const current = this.forgeStage();
+    if (current === 'code') {
+      this.forgeStage.set('design');
+      this.completedForgeStages.update(s => s.filter(x => x !== 'design'));
+    } else if (current === 'review') {
+      this.forgeStage.set('code');
+      this.completedForgeStages.update(s => s.filter(x => x !== 'code'));
+    }
+    this.showForgeNextPrompt.set(false);
+  }
+
+  loadConversation(conv: SavedConversation) {
+    if (this.isStreaming()) return;
+    this.clear();
+    const agent = AGENTS.find(a => a.id === conv.agentId) ?? AGENTS[0];
+    this.selectedAgent.set(agent);
+    this.displayedAgent.set(agent);
+    const cleanMessages = conv.messages.map(m => m.streaming ? { ...m, streaming: false } : m);
+    this.messages.set(cleanMessages);
+  }
+
+  removeRecentConvo(id: string, event: Event) {
+    event.stopPropagation();
+    const updated = this.recentConversations().filter(c => c.id !== id);
+    this.recentConversations.set(updated);
+    try { localStorage.setItem('main-recent-convos', JSON.stringify(updated)); } catch { /**/ }
+  }
+
+  private loadConversationsFromStorage() {
+    try {
+      const raw = localStorage.getItem('main-recent-convos');
+      if (raw) this.recentConversations.set(JSON.parse(raw));
+    } catch { /**/ }
+  }
+
+  private saveToRecent() {
+    const msgs = this.messages();
+    if (msgs.length === 0) return;
+    const firstUser = msgs.find(m => m.role === 'user');
+    const preview = (firstUser?.content ?? '').trim().slice(0, 50);
+    if (!preview) return;
+    const existing = this.recentConversations();
+    if (existing.length > 0 && existing[0].preview === preview && existing[0].agentId === this.selectedAgent().id) return;
+    const entry: SavedConversation = {
+      id: crypto.randomUUID(),
+      agentId: this.selectedAgent().id,
+      preview,
+      messages: msgs,
+      timestamp: Date.now(),
+    };
+    const updated = [entry, ...existing].slice(0, 4);
+    this.recentConversations.set(updated);
+    try { localStorage.setItem('main-recent-convos', JSON.stringify(updated)); } catch { /**/ }
   }
 
   ngOnDestroy() { this.chatService.abort(); }

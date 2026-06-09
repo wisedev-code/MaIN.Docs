@@ -28,3 +28,9 @@ public record ChatResponse(string Text, List<ToolUsage> ToolsUsed, int Estimated
     PrProposal? PrProposed = null, string? PrUrl = null,
     List<PresentedCodeFile>? PresentedCode = null,
     ReviewPosted? ReviewPosted = null);
+public record EnsembleDesignRequest(string Message, List<HistoryMessage> History);
+public record EnsembleCodeRequest(string OriginalMessage, string DesignContent);
+public record EnsembleReviewRequest(string OriginalMessage, string DesignContent, string CodeContent, string BranchName);
+public record EnsembleCodeResponse(string Text, List<ToolUsage> ToolsUsed, int EstimatedTokens,
+    string BranchName, int FilesChanged,
+    CodeChangeProposal? CodeChangeProposed = null, PrProposal? PrProposed = null);

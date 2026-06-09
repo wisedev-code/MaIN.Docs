@@ -192,7 +192,7 @@ public class GitHubService(HttpClient http, IConfiguration config, ILogger<GitHu
 
         var response = await http.PostAsync(
             $"/repos/{Repo}/pulls/{prNumber}/reviews",
-            new StringContent(payload, Encoding.UTF8, "application/json"));
+            new StringContent(withComments, Encoding.UTF8, "application/json"));
         if (!response.IsSuccessStatusCode)
         {
             var errorBody = await response.Content.ReadAsStringAsync();

@@ -3,6 +3,19 @@
   <div class="bg-glow bg-glow-1"></div>
   <div class="bg-glow bg-glow-2"></div>
 
+  @if (recentConversations().length > 0) {
+    <div class="recent-sidebar">
+      <div class="rs-label">recent</div>
+      @for (conv of recentConversations(); track conv.id) {
+        <button class="rc-item" (click)="loadConversation(conv)">
+          <span class="rc-icon">{{ getAgentById(conv.agentId).icon }}</span>
+          <span class="rc-preview">{{ conv.preview }}</span>
+          <button class="rc-del" (click)="removeRecentConvo(conv.id, $event)" title="Remove">×</button>
+        </button>
+      }
+    </div>
+  }
+
   <div class="chat-shell" [class.has-messages]="hasMessages()">
 
     @if (!hasMessages()) {
@@ -39,6 +52,14 @@
           </div>
         }
       </div>
+    }
+
+    @if (hasMessages()) {
+      <button class="chat-back-btn" (click)="back()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+      </button>
     }
 
     @if (ensembleStep() !== 'idle') {
@@ -411,6 +432,9 @@
 
     @if (selectedAgent().id === 'forge' && hasMessages()) {
       <div class="forge-flow-bar">
+        @if (forgeStage() !== 'design' && !isStreaming()) {
+          <button class="forge-back-btn" (click)="revertForgeStage()" title="Back to previous stage">←</button>
+        }
         @for (step of [{id: 'design', label: 'Design', num: 1}, {id: 'code', label: 'Code', num: 2}, {id: 'review', label: 'Review', num: 3}]; track step.id) {
           <div class="flow-step" [class.active]="forgeStage() === step.id" [class.done]="isForgeStageCompleted(step.id)">
             <span class="fs-num">@if (isForgeStageCompleted(step.id)) { ✓ } @else { {{ step.num }} }</span>

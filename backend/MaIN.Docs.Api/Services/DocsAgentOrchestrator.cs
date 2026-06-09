@@ -322,7 +322,7 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
                                 properties = new
                                 {
                                     title       = new { type = "string", description = "Step title (short)" },
-                                    description = new { type = "string", description = "What to do and why, 1-3 sentences" },
+                                    description = new { type = "string", description = "What to do and why. If creating or modifying a file, start with 'File: <repo-relative-path> —'." },
                                     codeSnippet = new { type = "string", description = "Optional. Concrete code for this step — a method signature, a diff fragment, or a new class. Omit for conceptual/config steps." },
                                     language    = new { type = "string", description = "Language of codeSnippet, e.g. 'csharp', 'json', 'bash'. Required when codeSnippet is set." }
                                 },
@@ -661,9 +661,9 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
             // ── Code presentation (Code mode — standalone examples) ──
             .AddTool<CodePresentTools.PresentArgs>(
                 "present_code",
-                "MANDATORY in CODE STAGE for standalone examples. Presents code files in the chat UI — " +
-                "this is the ONLY way the user sees your code. Call BEFORE propose_artifact_generation. " +
-                "Pass every file in the solution (minimum: .csproj + Program.cs).",
+                "Presents code files in the chat UI — the ONLY way the user sees your code. " +
+                "Use in CODE STAGE (all solution files) and in REVIEW STAGE (all final files — corrected or unchanged). " +
+                "In CODE STAGE call BEFORE propose_artifact_generation.",
                 new
                 {
                     type = "object",
@@ -1102,37 +1102,38 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
         STEP 1 — list_docs (ALWAYS first, no exceptions)
                  Know what documentation exists before touching anything else.
         STEP 2 — read_md_file on the relevant docs
+                 For any task that involves writing or modifying code in the MaIN.NET repository
+                 → read project-structure.md FIRST. It contains the project layout, existing
+                   patterns, and where new files belong. Then read feature-specific docs.
                  For any question touching models/backends → read models.md
                  For any question touching agents/pipelines → read agents.md
+                 For any question touching skills → read skills.md
                  For any question touching chat/completions → read chat.md
                  For setup/config → read getting-started.md
                  Read 1-3 docs maximum, then move on.
-        STEP 3 — (optional) read 1-2 repo files for specific implementation details
-                 Only if the docs don't answer the question. Use direct paths, not directory listings.
+        STEP 3 — For any repo-modification task: REQUIRED (not optional)
+                 a. After reading project-structure.md, call list_repo_files on the directory
+                    where the new or modified file will live (the path will be clear from the doc).
+                 b. Call read_repo_file on ONE existing file in that directory to get the exact pattern.
+                 Skipping this step and going straight to propose_plan is a hard failure.
         STEP 4 — propose_plan (or answer directly for pure design questions)
 
         NEVER skip STEP 1 and STEP 2. Answering without reading docs first produces hallucinations.
         ══════════════════════════════════════════════════════
 
-        CRITICAL KNOWLEDGE — do not contradict these facts from the docs:
-        - The Self (local) backend uses LLamaSharp internally — it is already a dependency of MaIN.NET.
-          Do NOT suggest "add LLamaSharp NuGet package". Adding GGUF/local model support = configure
-          BackendType.Self + ModelsPath, then optionally ModelRegistry.Register(new GenericLocalModel(...)).
-        - All model constants live in the Models.* namespace (read models.md for the full list).
-          Never invent a model constant — look it up in models.md or model-context.md.
-        - EnsureModelDownloaded() is a no-op for cloud backends. Only needed for Self backend.
-        - AgentContext is two-phase: configure+Create(), then ProcessAsync(). Do not collapse them.
-        - StepBuilder steps must be built via StepBuilder.Instance — never pass raw strings.
+        CRITICAL KNOWLEDGE:
+        - Do NOT recall API signatures, class names, or framework patterns from memory.
+          Every implementation detail must be confirmed by reading a doc or a repo file first.
+          Anything not confirmed by a tool call is a hallucination risk — no exceptions.
 
         REPO LAYOUT — navigate directly, never explore blindly:
-        Root: src/, tests/, samples/, docs/, .github/
           src/MaIN.Core/Hub/AIHub.cs                        ← entry points (Chat, Agent, Flow, Model, Mcp)
           src/MaIN.Core/Hub/Builders/                       ← context builder implementations
           src/MaIN.Core/Hub/Contexts/                       ← executors and interfaces
           src/MaIN.Core/Hub/Utils/ToolsConfigurationBuilder.cs
           src/MaIN.Domain/Entities/                         ← Message, Agent, Tool domain types
           src/MaIN.Domain/Models/Models/                    ← model name constants
-          src/MaIN.Backends/                                ← one folder per backend provider
+          (see project-structure.md for the full layout including Examples project paths)
 
         DOCS TOOLS:
         1. list_docs — ALWAYS first call
@@ -1153,6 +1154,9 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
         10. propose_plan — whenever the user describes a problem or asks how to implement something.
             - Complete STEPS 1-3 of the mandatory workflow first. The plan must reflect actual docs knowledge.
             - Structure: clear title, 1-2 sentence context, 3-7 concrete ordered steps.
+            - FILE PATHS IN STEPS: Every step that creates or modifies a file MUST begin its description
+              with the repo-relative path: "File: <path> — then what to do and why."
+              This is not optional — the Code agent depends on these paths to know where to write files.
             - CODE IN STEPS: Include codeSnippet for every step that touches actual code.
               · Use real APIs from the docs — exact method signatures, real Models.* constants.
               · For specific requests ("add X to backend Y"): each step that modifies code needs a snippet.
@@ -1253,18 +1257,16 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
         Each message begins with a stage directive — follow ONLY that stage's rules.
 
         CRITICAL KNOWLEDGE (all stages):
-        - LLamaSharp is already inside MaIN.NET — never suggest adding it separately
-        - All model constants live in Models.* — look them up in models.md, never invent them
-        - AgentContext is two-phase: configure+Create(), then ProcessAsync(). Do not collapse.
-        - StepBuilder steps must be built via StepBuilder.Instance — never pass raw strings
-        - EnsureModelDownloaded() is a no-op for cloud backends
+        - Do NOT recall API signatures, class names, or framework patterns from memory.
+          Every implementation detail must be confirmed by reading a doc or a repo file first.
+          Anything not confirmed by a tool call is a hallucination risk — no exceptions.
         - ALWAYS write text in your response — never return empty content
 
         REPO LAYOUT (navigate directly):
           src/MaIN.Core/Hub/AIHub.cs                   ← entry points
           src/MaIN.Core/Hub/Builders/                  ← context builders
           src/MaIN.Domain/Models/Models/               ← model constants
-          src/MaIN.Backends/                           ← backend providers
+          (see project-structure.md for the full layout including Examples project paths)
 
         ══ [DESIGN STAGE] ══
         You are in PLANNING mode. Understand the request, classify it, then propose a structured plan.
@@ -1274,8 +1276,9 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
           1. Read their correction word-for-word before calling any tool.
           2. Only change what they asked to change — do NOT re-derive classification from scratch.
           3. If they say "add to existing X" or "put it in the current project":
-             call list_repo_files on the parent directory (e.g. 'samples/') FIRST to discover exact structure,
-             then read_repo_file on ONE existing sibling file to understand naming and format.
+             read project-structure.md FIRST to find the exact directory, then
+             call list_repo_files on that directory, then
+             read_repo_file on ONE existing sibling file to understand naming and format.
              Your plan MUST slot into that existing structure (same folder convention, same .csproj format).
           4. Produce a corrected propose_plan that directly addresses their feedback.
         ────────────────────────────────────────────────
@@ -1289,9 +1292,8 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
         "add", "create a skill", "add to the repo" — ALL of these are TYPE B, not TYPE A.
 
           TYPE B — Extend the MaIN.NET repository. Add or modify files inside the existing repo.
-            Examples: new sample in samples/, new method in src/, new skill file, new extension class.
-            A "new example" means a new FOLDER inside samples/ with files that reference the MaIN.NET
-            package — NOT a brand-new solution with its own .sln file outside the repo.
+            Examples: new example in the existing Examples project, new method in src/, new skill file.
+            Read project-structure.md to find the exact location — do NOT invent paths.
 
           TYPE A — ONLY when the user explicitly asks for a brand-new standalone solution they will
             run locally on their machine, completely separate from the MaIN.NET repo.
@@ -1301,19 +1303,20 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
         If there is any ambiguity, TYPE B. Never guess TYPE A.
 
         STEP 2 — MANDATORY repo read for TYPE B (skip only for TYPE A):
-          a. list_docs → read 1-2 relevant docs for API details
+          a. list_docs → read project-structure.md FIRST, then 1-2 feature-specific docs for API details
           b. !! REQUIRED before proposing anything !!
-             - For samples/examples: call list_repo_files with path='samples/' to see what already exists.
-               Then call read_repo_file on ONE existing sample's .csproj to learn the exact project format.
-               Do NOT invent a project structure — copy the format from the file you just read.
-               Only propose a new .csproj if no existing project can host the new example.
+             - Read project-structure.md to find the exact directory for the change.
+               Then call list_repo_files on that directory to see what already exists.
+               Then call read_repo_file on ONE existing file in that directory to copy the exact pattern.
+               Do NOT invent code structure — read first, then propose.
              - For library/source changes: call read_repo_file on each existing file you will touch.
           Skipping step (b) and going straight to propose_plan is a hard failure for TYPE B.
 
         STEP 3 — propose_plan:
           - First line of `context` field: "TYPE A" or "TYPE B — <one sentence rationale>"
-          - For TYPE B samples: steps must name the EXACT paths discovered in step 2b, not invented names.
-            If a new folder is needed, match the numbering and casing of existing sibling folders.
+          - For TYPE B: steps must name the EXACT paths discovered in step 2b, not invented names.
+            Every step that creates or modifies a file MUST begin its description with:
+            "File: <repo-relative-path> — then what to do and why."
           - codeSnippets in steps are encouraged for clarity
           - After propose_plan, write exactly 1-2 sentences summarizing what you planned
 
@@ -1340,9 +1343,16 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
 
         STEP 2B — TYPE B (MaIN.NET library contribution):
           1. list_docs → read 1-2 docs for exact API signatures
-          2. read_repo_file on each existing file you will modify. For new sample projects:
-             read_repo_file on ONE existing sibling sample's .csproj to copy its exact format —
-             samples use <PackageReference Include="MaIN.NET" Version="*" />, NOT ProjectReference.
+          2. !! REQUIRED — read repo files before writing a single line of code !!
+             - For every file the DESIGN plan says to MODIFY:
+               call read_repo_file on it to get the current content.
+               You must know exactly what is already there before changing it.
+             - For every file the DESIGN plan says to CREATE:
+               call list_repo_files on the target directory, pick the existing file whose PURPOSE
+               is most similar to what you are about to write (e.g. if adding a skill example,
+               pick an existing skill example — not just any file), then call read_repo_file on it
+               to copy its exact namespace, usings, and class structure.
+             Never write or invent code without first reading the relevant existing files.
           3. Call present_code with ALL files you are adding or changing — complete content, correct paths.
              Use the exact file paths from the DESIGN plan. Do not invent new project structures.
              THIS IS THE ONLY WAY THE USER SEES YOUR CODE. Never skip this tool.
@@ -1365,27 +1375,27 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
         ══ [REVIEW STAGE] ══
         You are in FINALIZATION mode. Two sub-cases — read the conversation to determine which applies:
 
-        ── SUB-CASE A: First review turn (no propose_code_change in this response yet) ──
+        ── SUB-CASE A: First review turn ──
         STEP 1 — list_docs → read 1-2 docs to verify API usage against CODE STAGE output.
-        STEP 2 — Write a 2-3 sentence verdict on correctness. If nothing is wrong, say so in one sentence.
-        STEP 3 — Propose the changes:
-          a. Determine branch name from the plan (e.g. 'feat/add-local-skills').
-          b. For EVERY file from CODE STAGE: call propose_code_change with complete corrected content.
-          c. Call propose_pull_request once with a clear title and markdown body.
-          The UI shows a "Create Branch & PR" card — wait for the user to confirm.
-        TOOL ECONOMY: list_docs (1) + 1 read (1) + code changes (3) + PR (1) = 6 max.
+        STEP 2 — Write a 1-2 sentence verdict. Apply any corrections silently (no need to list them).
+        STEP 3 — Call present_code with ALL final files (apply corrections inline — complete content, exact paths).
+                 This shows the user exactly what will be pushed.
+        STEP 4 — Call propose_pull_request with branch name (from the plan), title, and markdown body.
+                 The UI shows a "Create PR" card — wait for the user to confirm.
+        TOOL ECONOMY: list_docs (1) + 1 read (1) + present_code (1) + PR proposal (1) = 4 max.
+        Do NOT call propose_code_change — it is not used in this flow.
 
-        ── SUB-CASE B: User confirmed "Create Branch & PR" ──
-        The user message will say "Confirmed. Call push_file_to_branch..." or similar.
-        Do NOT call propose_code_change or propose_pull_request again.
-        STEP 1 — For EVERY file you proposed in this conversation: call push_file_to_branch
-                 with the exact same branch, filePath, content, and commitMessage you used in propose_code_change.
+        ── SUB-CASE B: User confirmed PR creation ──
+        The user confirmed. Do NOT call propose_code_change or propose_pull_request again.
+        STEP 1 — For EVERY file shown in present_code: call push_file_to_branch
+                 using the branch from propose_pull_request, complete file content, and a short commit message.
         STEP 2 — Call create_pull_request with the exact title, body, headBranch, baseBranch from propose_pull_request.
-        STEP 3 — Write one sentence confirming the branch and PR were created.
+        STEP 3 — One sentence confirming the branch and PR were created.
         TOOL ECONOMY: file pushes (N) + create_pull_request (1). No doc reads needed.
 
         Rules (both sub-cases):
         - Do NOT call propose_plan, do NOT propose issues
         - Do NOT call propose_pr_review or create_pr_review — those are for reviewing existing PRs, not new code
+        - Do NOT call propose_code_change at any point in Forge review — push_file_to_branch is the only push tool
         """;
 }

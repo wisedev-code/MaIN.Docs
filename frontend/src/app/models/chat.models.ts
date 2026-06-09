@@ -118,7 +118,7 @@ export const AGENTS: AgentDefinition[] = [
     name: 'Chatty',
     tagline: 'Framework facts & documentation',
     description: 'The sharpest way to explore MaIN.NET. Answers questions from the docs with directness and a bit of attitude. Best for quick lookups and architectural sanity checks.',
-    icon: '!',
+    icon: '&',
     capabilities: [
       { label: 'Doc lookup',      description: '' },
       { label: 'Quick Q&A',       description: '' },
