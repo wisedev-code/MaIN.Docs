@@ -17,6 +17,9 @@ public static class PrTools
     public record SubmitPrReviewArgs(
         int PrNumber, string HeadSha, string Verdict, string Summary,
         List<ReviewCommentArg> Comments);
+    public record CreatePrReviewArgs(
+        int PrNumber, string HeadSha, string Verdict, string Summary,
+        List<ReviewCommentArg> Comments);
     public record ProposeCodeChangeArgs(
         string Branch, string FilePath, string Content,
         string CommitMessage, string Rationale);
@@ -29,12 +32,14 @@ public static class PrTools
 
     private static GitHubService _svc = null!;
     private static Action<PrReviewProposal>? _reviewCapture;
+    private static Action<ReviewPosted>? _reviewPostedCapture;
     private static Action<CodeChangeProposal>? _codeChangeCapture;
     private static Action<PrProposal>? _prCapture;
     private static Action<string>? _prUrlCapture;
 
     public static void Init(GitHubService svc) => _svc = svc;
     public static void SetReviewCapture(Action<PrReviewProposal>? capture) => _reviewCapture = capture;
+    public static void SetReviewPostedCapture(Action<ReviewPosted>? capture) => _reviewPostedCapture = capture;
     public static void SetCodeChangeCapture(Action<CodeChangeProposal>? capture) => _codeChangeCapture = capture;
     public static void SetPrCapture(Action<PrProposal>? capture) => _prCapture = capture;
     public static void SetPrUrlCapture(Action<string>? capture) => _prUrlCapture = capture;
@@ -104,6 +109,33 @@ public static class PrTools
         var url = await _svc.SubmitPrReviewAsync(
             args.PrNumber, args.HeadSha, args.Verdict, args.Summary, comments);
         return new { submitted = true, url };
+    }
+
+    public static async Task<object> CreatePrReview(CreatePrReviewArgs args)
+    {
+        var comments = args.Comments
+            .Select(c => new PrReviewComment(c.FilePath, c.Line, c.Body))
+            .ToList();
+        try
+        {
+            var url = await _svc.SubmitPrReviewAsync(
+                args.PrNumber, args.HeadSha, args.Verdict, args.Summary, comments);
+            _reviewPostedCapture?.Invoke(new ReviewPosted(
+                args.PrNumber, args.Verdict, args.Summary, args.Comments.Count, url));
+            return new { submitted = true, url, commentCount = args.Comments.Count };
+        }
+        catch (HttpRequestException ex)
+        {
+            // Return the GitHub error body so the model can self-correct (e.g. fix line numbers)
+            return new
+            {
+                submitted = false,
+                error = ex.Message,
+                hint = "Line numbers must refer to lines present in the PR diff. " +
+                       "If a line is not in the diff, omit that comment or adjust the line number. " +
+                       "You can retry create_pr_review with corrected arguments."
+            };
+        }
     }
 
     public static Task<object> ProposeCodeChange(ProposeCodeChangeArgs args)

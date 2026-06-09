@@ -1,8 +1,9 @@
 import { Component, ElementRef, OnDestroy, ViewChild, signal, computed, effect, NgZone } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { SlicePipe } from '@angular/common';
 import { ChatService } from '../../services/chat.service';
 import { AppStateService } from '../../services/app-state.service';
-import { ArtifactProposal, IssueProposal, PlanProposal, PrReviewProposal, CodeChangeProposal, PrProposal, ChatMessage, ToolUsage, AgentDefinition, AGENTS, Attachment } from '../../models/chat.models';
+import { ArtifactProposal, IssueProposal, PlanProposal, PrReviewProposal, CodeChangeProposal, PrProposal, PresentedCodeFile, ReviewPosted, ChatMessage, ToolUsage, AgentDefinition, AGENTS, Attachment } from '../../models/chat.models';
 
 import hljs from 'highlight.js/lib/core';
 import csharp from 'highlight.js/lib/languages/csharp';
@@ -21,7 +22,7 @@ hljs.registerLanguage('plaintext', plaintext);
 
 @Component({
   selector: 'app-home',
-  imports: [FormsModule],
+  imports: [FormsModule, SlicePipe],
   templateUrl: './home.html',
   styleUrl: './home.scss'
 })
@@ -55,6 +56,10 @@ export class Home implements OnDestroy {
   showPrPrompt = signal(false);
   prProposal = signal<PrProposal | null>(null);
   attachments = signal<Attachment[]>([]);
+  forgeStage = signal<'design' | 'code' | 'review'>('design');
+  completedForgeStages = signal<string[]>([]);
+  showForgeNextPrompt = signal(false);
+  lastFailedInput = signal('');
 
   hasMessages = computed(() => this.messages().length > 0);
 
@@ -73,7 +78,14 @@ export class Home implements OnDestroy {
     }, { allowSignalWrites: true });
   }
 
-  selectAgent(agent: AgentDefinition) { this.selectedAgent.set(agent); }
+  selectAgent(agent: AgentDefinition) {
+    if (this.selectedAgent().id === 'forge' && agent.id !== 'forge') {
+      this.forgeStage.set('design');
+      this.completedForgeStages.set([]);
+      this.showForgeNextPrompt.set(false);
+    }
+    this.selectedAgent.set(agent);
+  }
 
   showAgentInfo(agent: AgentDefinition) {
     this.displayedAgent.set(agent);
@@ -83,8 +95,8 @@ export class Home implements OnDestroy {
   hideAgentInfo() { this.hoveredAgent.set(null); }
 
   async send() {
-    const text = this.inputText().trim();
-    if (!text && this.attachments().length === 0) return;
+    const rawText = this.inputText().trim();
+    if (!rawText && this.attachments().length === 0) return;
     if (this.isStreaming()) return;
 
     this.showArtifactPrompt.set(false);
@@ -92,10 +104,18 @@ export class Home implements OnDestroy {
     this.showReviewPrompt.set(false);
     this.showCodeChangePrompt.set(false);
     this.showPrPrompt.set(false);
+    this.showForgeNextPrompt.set(false);
 
+    // Stage prefix silently added for Forge — chat shows clean text, API gets tagged text
+    const stagePrefix = this.selectedAgent().id === 'forge'
+      ? `[${this.forgeStage().toUpperCase()} STAGE] `
+      : '';
+    const apiText = stagePrefix + rawText;
+
+    this.lastFailedInput.set(rawText);
     const currentAttachments = this.attachments();
     const history = this.messages().slice();
-    this.messages.update(m => [...m, { role: 'user', content: text, attachments: currentAttachments }]);
+    this.messages.update(m => [...m, { role: 'user', content: rawText, attachments: currentAttachments }]);
     this.inputText.set('');
     this.attachments.set([]);
     this.resetTextareaHeight();
@@ -105,9 +125,9 @@ export class Home implements OnDestroy {
     setTimeout(() => this.scrollToBottom(), 60);
 
     try {
-      const response = await this.chatService.sendMessage(this.selectedAgent().id, text, history);
+      const response = await this.chatService.sendMessage(this.selectedAgent().id, apiText, history);
       const msgIndex = this.messages().length - 1;
-      await this.revealWordByWord(response.content, msgIndex, response.toolsUsed, response.estimatedTokens, response.artifactUrl, response.artifactProposed, response.issueProposed, response.issueUrl, response.planProposed, response.reviewProposed, response.codeChangeProposed, response.prProposed, response.prUrl);
+      await this.revealWordByWord(response.content, msgIndex, response.toolsUsed, response.estimatedTokens, response.artifactUrl, response.artifactProposed, response.issueProposed, response.issueUrl, response.planProposed, response.reviewProposed, response.codeChangeProposed, response.prProposed, response.prUrl, response.presentedCode, response.reviewPosted);
 
       if (response.artifactProposed && !response.artifactUrl) {
         this.artifactProposal.set(response.artifactProposed);
@@ -129,13 +149,21 @@ export class Home implements OnDestroy {
         this.prProposal.set(response.prProposed);
         this.showPrPrompt.set(true);
       }
+      if (this.selectedAgent().id === 'forge') {
+        if (this.forgeStage() === 'design' && response.planProposed) {
+          this.showForgeNextPrompt.set(true);
+        } else if (this.forgeStage() === 'code' && (response.presentedCode?.length || response.artifactProposed || response.artifactUrl || response.prProposed)) {
+          this.showForgeNextPrompt.set(true);
+        }
+      }
     } catch {
       this.messages.update(msgs => {
         const updated = [...msgs];
         updated[updated.length - 1] = {
           ...updated[updated.length - 1],
-          content: 'Sorry, something went wrong. Please try again.',
+          content: '',
           streaming: false,
+          isError: true,
         };
         return updated;
       });
@@ -157,7 +185,9 @@ export class Home implements OnDestroy {
     reviewProposed?: PrReviewProposal,
     codeChangeProposed?: CodeChangeProposal,
     prProposed?: PrProposal,
-    prUrl?: string
+    prUrl?: string,
+    presentedCode?: PresentedCodeFile[],
+    reviewPosted?: ReviewPosted
   ) {
     const CHUNK = 4;
     const DELAY = 32;
@@ -200,6 +230,8 @@ export class Home implements OnDestroy {
         codeChangeProposed,
         prProposed,
         prUrl,
+        presentedCode,
+        reviewPosted,
       };
       return updated;
     });
@@ -271,6 +303,54 @@ export class Home implements OnDestroy {
     this.send();
   }
 
+  dismissCombinedPrompt() {
+    this.showCodeChangePrompt.set(false);
+    this.codeChangeProposal.set(null);
+    this.showPrPrompt.set(false);
+    this.prProposal.set(null);
+  }
+
+  requestCombined() {
+    const code = this.codeChangeProposal();
+    const pr = this.prProposal();
+    this.dismissCombinedPrompt();
+    const branchHint = code ? ` Branch: ${code.branch}.` : '';
+    const prHint = pr ? ` PR: "${pr.title}" from ${pr.headBranch} to ${pr.baseBranch}.` : '';
+    this.inputText.set(`Confirmed. Call push_file_to_branch for EVERY file from your propose_code_change calls in this conversation, then call create_pull_request.${branchHint}${prHint} Do not call propose_code_change or propose_pull_request again.`);
+    this.send();
+  }
+
+  advanceForgeStage() {
+    const current = this.forgeStage();
+    this.completedForgeStages.update(s => [...s, current]);
+    this.showForgeNextPrompt.set(false);
+    const next = current === 'design' ? 'code' : 'review';
+    this.forgeStage.set(next);
+    
+    let msg = '';
+    if (next === 'code') {
+      msg = 'The design plan is approved. Proceed to CODE STAGE. Use present_code to show all files — do NOT call propose_code_change or propose_pull_request here, those are REVIEW STAGE tools.';
+    } else {
+      msg = 'The code is ready. Proceed to REVIEW STAGE: verify API usage against the docs, then call propose_code_change for every file and propose_pull_request once. Do not call present_code.';
+    }
+    
+    this.inputText.set(msg);
+    this.send();
+  }
+
+  dismissForgeNextPrompt() { this.showForgeNextPrompt.set(false); }
+
+  retryLastMessage() {
+    const text = this.lastFailedInput();
+    if (!text || this.isStreaming()) return;
+    this.messages.update(msgs => msgs.slice(0, -2));
+    this.lastFailedInput.set('');
+    this.inputText.set(text);
+    this.send();
+  }
+
+  isForgeStageCompleted(stage: string): boolean { return this.completedForgeStages().includes(stage); }
+
   stop() {
     this.chatService.abort();
     this.messages.update(msgs => {
@@ -295,6 +375,9 @@ export class Home implements OnDestroy {
     this.showPrPrompt.set(false);
     this.prProposal.set(null);
     this.attachments.set([]);
+    this.forgeStage.set('design');
+    this.completedForgeStages.set([]);
+    this.showForgeNextPrompt.set(false);
     this.resetTextareaHeight();
   }
 
@@ -366,6 +449,21 @@ export class Home implements OnDestroy {
     return `<div class="code-block code-block-step"><div class="code-header"><span class="code-lang">${lang || 'code'}</span><button class="copy-btn" title="Copy code">${Home.COPY_ICON}</button></div><pre><code class="hljs">${highlighted}</code></pre></div>`;
   }
 
+  renderPresentedCode(content: string, language: string): string {
+    const lang = language.toLowerCase();
+    let highlighted: string;
+    try {
+      if (lang && hljs.getLanguage(lang)) {
+        highlighted = hljs.highlight(content, { language: lang }).value;
+      } else {
+        highlighted = hljs.highlightAuto(content, ['csharp', 'json', 'bash', 'xml']).value;
+      }
+    } catch {
+      highlighted = content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    return `<pre><code class="hljs">${highlighted}</code></pre>`;
+  }
+
   onKeydown(event: KeyboardEvent) {
     if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); this.send(); }
   }
@@ -380,7 +478,7 @@ export class Home implements OnDestroy {
   }
 
   toolTokenEstimate(toolsUsed: ToolUsage[]): number {
-    return toolsUsed.reduce((sum, t) => sum + t.calls * 180, 0);
+    return toolsUsed.reduce((sum, t) => sum + t.calls * 540, 0);
   }
 
   private scrollToBottom() {

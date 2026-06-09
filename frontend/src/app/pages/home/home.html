@@ -22,7 +22,12 @@
         @for (msg of messages(); track $index) {
           <div class="message" [class.user]="msg.role === 'user'" [class.assistant]="msg.role === 'assistant'">
             @if (msg.role === 'assistant') {
-              <div class="msg-avatar">{{ selectedAgent().icon }}</div>
+              <div class="msg-avatar-wrap">
+                <div class="msg-avatar">{{ selectedAgent().icon }}</div>
+                @if (selectedAgent().special && msg.streaming) {
+                  <span class="forge-stage-badge">{{ forgeStage() }}</span>
+                }
+              </div>
             }
             <div class="msg-body">
               @if (msg.role === 'assistant') {
@@ -140,6 +145,29 @@
                 </a>
               }
 
+              @if (msg.reviewPosted) {
+                <a class="review-posted-card" [href]="msg.reviewPosted.url" target="_blank" rel="noopener noreferrer">
+                  <div class="rpc-verdict"
+                    [class.approve]="msg.reviewPosted.verdict === 'APPROVE'"
+                    [class.changes]="msg.reviewPosted.verdict === 'REQUEST_CHANGES'"
+                    [class.comment]="msg.reviewPosted.verdict === 'COMMENT'">
+                    @if (msg.reviewPosted.verdict === 'APPROVE') { ✓ APPROVED }
+                    @else if (msg.reviewPosted.verdict === 'REQUEST_CHANGES') { ✗ CHANGES REQUESTED }
+                    @else { ● COMMENT }
+                  </div>
+                  <div class="rpc-info">
+                    <span class="rpc-title">PR #{{ msg.reviewPosted.prNumber }} — review posted</span>
+                    <span class="rpc-meta">{{ msg.reviewPosted.commentCount }} inline comment{{ msg.reviewPosted.commentCount !== 1 ? 's' : '' }} · {{ msg.reviewPosted.summary | slice:0:80 }}{{ msg.reviewPosted.summary.length > 80 ? '…' : '' }}</span>
+                  </div>
+                  <div class="rpc-link-icon">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                      <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                    </svg>
+                  </div>
+                </a>
+              }
+
               @if (msg.planProposed) {
                 <div class="plan-card">
                   <div class="plan-header">
@@ -174,7 +202,44 @@
                 </div>
               }
 
-              @if (msg.streaming && msg.content.length === 0) {
+              @if (msg.presentedCode && msg.presentedCode.length > 0) {
+                <div class="presented-code">
+                  @for (file of msg.presentedCode; track file.path) {
+                    <div class="pc-file">
+                      <div class="pc-file-header">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                          <polyline points="14 2 14 8 20 8"/>
+                        </svg>
+                        <span class="pc-file-path">{{ file.path }}</span>
+                        <span class="pc-lang-tag">{{ file.language }}</span>
+                      </div>
+                      <div class="pc-code" [innerHTML]="renderPresentedCode(file.content, file.language)"></div>
+                    </div>
+                  }
+                </div>
+              }
+
+              @if (msg.isError) {
+                <div class="error-card">
+                  <div class="error-emoji-reel">
+                    <span class="e1">🧠</span>
+                    <span class="e2">🔥</span>
+                    <span class="e3">💀</span>
+                    <span class="e4">🌀</span>
+                  </div>
+                  <div class="error-body">
+                    <span class="error-title">Context limit reached</span>
+                    <span class="error-sub">The agent ran out of thinking space. Simplify the request or start fresh.</span>
+                  </div>
+                  <button class="error-retry-btn" (click)="retryLastMessage()" title="Retry">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4"/>
+                    </svg>
+                    Retry
+                  </button>
+                </div>
+              } @else if (msg.streaming && msg.content.length === 0) {
                 <div class="inference-indicator">
                   <div class="inf-bars">
                     <span></span><span></span><span></span><span></span>
@@ -237,7 +302,34 @@
       </div>
     }
 
-    @if (showCodeChangePrompt()) {
+    @if (showCodeChangePrompt() && showPrPrompt()) {
+      <div class="combined-prompt">
+        <div class="cp-icons">
+          <div class="ccp-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+            </svg>
+          </div>
+          <div class="cp-sep">+</div>
+          <div class="ccp-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/>
+              <line x1="6" y1="9" x2="6" y2="21"/>
+            </svg>
+          </div>
+        </div>
+        <div class="rp-body">
+          <span class="rp-title">Create branch <strong>{{ codeChangeProposal()?.branch }}</strong> &amp; PR: <strong>{{ prProposal()?.title }}</strong></span>
+          <span class="rp-meta">{{ codeChangeProposal()?.filePath }} → {{ prProposal()?.baseBranch }}</span>
+        </div>
+        <div class="ap-actions">
+          <button class="ap-btn ap-yes" (click)="requestCombined()">Create Branch &amp; PR</button>
+          <button class="ap-btn ap-no"  (click)="dismissCombinedPrompt()">Dismiss</button>
+        </div>
+      </div>
+    }
+
+    @if (showCodeChangePrompt() && !showPrPrompt()) {
       <div class="code-change-prompt">
         <div class="ccp-icon">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -255,7 +347,7 @@
       </div>
     }
 
-    @if (showPrPrompt()) {
+    @if (showPrPrompt() && !showCodeChangePrompt()) {
       <div class="pr-prompt">
         <div class="ccp-icon">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -274,6 +366,31 @@
       </div>
     }
 
+    @if (selectedAgent().id === 'forge' && hasMessages()) {
+      <div class="forge-flow-bar">
+        @for (step of [{id: 'design', label: 'Design', num: 1}, {id: 'code', label: 'Code', num: 2}, {id: 'review', label: 'Review', num: 3}]; track step.id) {
+          <div class="flow-step" [class.active]="forgeStage() === step.id" [class.done]="isForgeStageCompleted(step.id)">
+            <span class="fs-num">@if (isForgeStageCompleted(step.id)) { ✓ } @else { {{ step.num }} }</span>
+            <span class="fs-label">{{ step.label }}</span>
+          </div>
+          @if (step.num < 3) {
+            <div class="flow-connector" [class.done]="isForgeStageCompleted(step.id)"></div>
+          }
+        }
+      </div>
+    }
+
+    @if (showForgeNextPrompt()) {
+      <div class="forge-stage-prompt">
+        <span class="fsp-icon">⬡</span>
+        <span class="fsp-text">Stage complete — advance to <strong>{{ forgeStage() === 'design' ? 'Code' : 'Review' }}</strong>?</span>
+        <div class="ap-actions">
+          <button class="ap-btn ap-yes" (click)="advanceForgeStage()">Continue {{ forgeStage() === 'design' ? 'Code' : 'Review' }} →</button>
+          <button class="ap-btn ap-no" (click)="dismissForgeNextPrompt()">Stay here</button>
+        </div>
+      </div>
+    }
+
     <div class="input-area" [class.centered]="!hasMessages()">
       <div class="agent-zone" (mouseleave)="hideAgentInfo()">
         <div class="agent-switcher">
@@ -282,9 +399,11 @@
               class="agent-pill"
               [class.active]="selectedAgent().id === agent.id"
               [class.previewing]="hoveredAgent()?.id === agent.id"
+              [class.special]="agent.special"
               (click)="selectAgent(agent)"
               (mouseenter)="showAgentInfo(agent)"
             >
+              @if (agent.beta) { <span class="agent-beta">BETA</span> }
               <span class="agent-icon">{{ agent.icon }}</span>
               <span class="agent-name">{{ agent.name }}</span>
             </button>

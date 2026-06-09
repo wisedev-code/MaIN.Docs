@@ -164,12 +164,25 @@ public class GitHubService(HttpClient http, IConfiguration config, ILogger<GitHu
             commit_id = headSha,
             body,
             @event = reviewEvent,
-            comments = comments.Select(c => new { path = c.Path, line = c.Line, body = c.Body })
+            comments = comments.Select(c => new
+            {
+                path = c.Path,
+                line = c.Line,
+                side = "RIGHT",
+                body = c.Body
+            })
         });
         var response = await http.PostAsync(
             $"/repos/{Repo}/pulls/{prNumber}/reviews",
             new StringContent(payload, Encoding.UTF8, "application/json"));
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            logger.LogError("GitHub PR review failed {Status}: {Body}", (int)response.StatusCode, errorBody);
+            throw new HttpRequestException(
+                $"GitHub returned {(int)response.StatusCode}: {errorBody}",
+                null, response.StatusCode);
+        }
         var json = await response.Content.ReadAsStringAsync();
         using var doc = JsonDocument.Parse(json);
         var url = doc.RootElement.GetProperty("html_url").GetString() ?? string.Empty;
@@ -177,8 +190,43 @@ public class GitHubService(HttpClient http, IConfiguration config, ILogger<GitHu
         return url;
     }
 
+    public async Task EnsureBranchExistsAsync(string branch)
+    {
+        var response = await http.GetAsync($"/repos/{Repo}/branches/{Uri.EscapeDataString(branch)}");
+        if (response.IsSuccessStatusCode) return;
+
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            logger.LogInformation("Branch {Branch} not found, creating from main...", branch);
+            
+            // Get SHA of main branch
+            var mainBranchJson = await http.GetStringAsync($"/repos/{Repo}/branches/main");
+            var mainBranch = JsonSerializer.Deserialize<GitHubBranch>(mainBranchJson, JsonOpts)!;
+            
+            var payload = JsonSerializer.Serialize(new 
+            { 
+                @ref = $"refs/heads/{branch}", 
+                sha = mainBranch.Commit.Sha 
+            });
+            
+            var createResponse = await http.PostAsync(
+                $"/repos/{Repo}/git/refs",
+                new StringContent(payload, Encoding.UTF8, "application/json"));
+            
+            if (!createResponse.IsSuccessStatusCode)
+            {
+                var error = await createResponse.Content.ReadAsStringAsync();
+                throw new HttpRequestException($"Failed to create branch {branch}: {error}");
+            }
+            
+            logger.LogInformation("Created branch {Branch} from main", branch);
+        }
+    }
+
     public async Task PushFileAsync(string filePath, string content, string commitMessage, string branch)
     {
+        await EnsureBranchExistsAsync(branch);
+
         var cleanPath = filePath.TrimStart('/');
         var base64Content = Convert.ToBase64String(Encoding.UTF8.GetBytes(content));
 
@@ -212,7 +260,13 @@ public class GitHubService(HttpClient http, IConfiguration config, ILogger<GitHu
         var response = await http.PostAsync(
             $"/repos/{Repo}/pulls",
             new StringContent(payload, Encoding.UTF8, "application/json"));
-        response.EnsureSuccessStatusCode();
+            
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorJson = await response.Content.ReadAsStringAsync();
+            throw new HttpRequestException($"GitHub API Error ({response.StatusCode}): {errorJson}");
+        }
+
         var json = await response.Content.ReadAsStringAsync();
         return JsonSerializer.Deserialize<GitHubPrCreated>(json, JsonOpts)!;
     }

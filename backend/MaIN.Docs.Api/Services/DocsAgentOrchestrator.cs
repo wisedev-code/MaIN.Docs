@@ -22,19 +22,25 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
         IssueTools.Init(githubService);
         PrTools.Init(githubService);
 
+        var chattyTools  = BuildChattyTools(docsPath);
         var codeTools    = BuildCodeTools(docsPath);
         var designTools  = BuildDesignTools(docsPath);
         var reviewTools  = BuildReviewTools(docsPath);
+        var forgeTools   = BuildForgeTools(docsPath);
 
+        var modelChatty = DomainModels.Gemini.Gemini3_1FlashLite;
         var modelCode   = DomainModels.Gemini.Gemini3_5Flash;
         var modelReview = DomainModels.Gemini.Gemini3_1FlashLite;
         var modelDesign = DomainModels.Gemini.Gemini2_5Pro;
+        var modelForge  = DomainModels.Gemini.Gemini2_5Pro;
 
         var defs = new[]
         {
+            new AgentDef("chatty", "Chatty", modelChatty, ChattySystemPrompt, chattyTools),
             new AgentDef("code",   "Code",   modelCode,   CodeSystemPrompt,   codeTools),
             new AgentDef("design", "Design", modelDesign, DesignSystemPrompt, designTools),
             new AgentDef("review", "Review", modelReview, ReviewSystemPrompt, reviewTools),
+            new AgentDef("forge",  "Forge",  modelForge,  ForgeSystemPrompt,  forgeTools),
         };
 
         foreach (var def in defs)
@@ -79,9 +85,11 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
         IssueProposal? issueProposed = null;
         PlanProposal? planProposed = null;
         PrReviewProposal? reviewProposed = null;
+        ReviewPosted? reviewPosted = null;
         CodeChangeProposal? codeChangeProposed = null;
         PrProposal? prProposed = null;
         string? prUrl = null;
+        List<PresentedCodeFile>? codePresented = null;
 
         if (agentId == "code")
         {
@@ -99,9 +107,27 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
         if (agentId == "review")
         {
             PrTools.SetReviewCapture(r => reviewProposed = r);
+            PrTools.SetReviewPostedCapture(r => reviewPosted = r);
             PrTools.SetCodeChangeCapture(c => codeChangeProposed = c);
             PrTools.SetPrCapture(p => prProposed = p);
             PrTools.SetPrUrlCapture(url => prUrl = url);
+        }
+
+        if (agentId == "forge")
+        {
+            ArtifactTools.SetCapture(url => artifactUrl = url);
+            ArtifactTools.SetProposalCapture(p => artifactProposed = new ArtifactProposal(p.ArchiveName, p.Description));
+            IssueTools.SetProposalCapture(p => issueProposed = new IssueProposal(p.Title, p.Body));
+            IssueTools.SetUrlCapture(url => issueUrl = url);
+            PlanTools.SetCapture(plan => planProposed = plan);
+            PrTools.SetReviewCapture(r => reviewProposed = r);
+            PrTools.SetReviewPostedCapture(r => reviewPosted = r);
+            PrTools.SetCodeChangeCapture(c => codeChangeProposed = c);
+            PrTools.SetPrCapture(p => prProposed = p);
+            PrTools.SetPrUrlCapture(url => prUrl = url);
+            CodePresentTools.SetCapture(files => codePresented = files
+                .Select(f => new PresentedCodeFile(f.Path, f.Content, f.Language))
+                .ToList());
         }
 
         try
@@ -136,7 +162,7 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
 
             return new AgentResult(result.Message.Content ?? string.Empty, toolsUsed, estimatedTokens,
                 artifactUrl, artifactProposed, issueProposed, issueUrl, planProposed,
-                reviewProposed, codeChangeProposed, prProposed, prUrl);
+                reviewProposed, codeChangeProposed, prProposed, prUrl, codePresented, reviewPosted);
         }
         finally
         {
@@ -146,9 +172,11 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
             IssueTools.SetUrlCapture(null);
             PlanTools.SetCapture(null);
             PrTools.SetReviewCapture(null);
+            PrTools.SetReviewPostedCapture(null);
             PrTools.SetCodeChangeCapture(null);
             PrTools.SetPrCapture(null);
             PrTools.SetPrUrlCapture(null);
+            CodePresentTools.SetCapture(null);
             sem.Release();
         }
     }
@@ -371,6 +399,39 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
                     required = new[] { "prNumber", "headSha", "verdict", "summary", "comments" }
                 },
                 PrTools.SubmitPrReview)
+            .AddTool<PrTools.CreatePrReviewArgs>(
+                "create_pr_review",
+                "PREFERRED: directly posts a PR review with inline comments to GitHub — no user confirmation required. " +
+                "Use this instead of propose_pr_review when you are ready to submit. Always call get_pr_files first to read the actual diff.",
+                new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        prNumber = new { type = "integer", description = "PR number" },
+                        headSha  = new { type = "string",  description = "Head commit SHA from get_pull_request" },
+                        verdict  = new { type = "string",  description = "APPROVE, REQUEST_CHANGES, or COMMENT" },
+                        summary  = new { type = "string",  description = "Overall review summary" },
+                        comments = new
+                        {
+                            type = "array",
+                            description = "Inline review comments — at least 1 comment required",
+                            items = new
+                            {
+                                type = "object",
+                                properties = new
+                                {
+                                    filePath = new { type = "string",  description = "File path in the PR" },
+                                    line     = new { type = "integer", description = "Line number" },
+                                    body     = new { type = "string",  description = "Comment with the issue and fix" }
+                                },
+                                required = new[] { "filePath", "line", "body" }
+                            }
+                        }
+                    },
+                    required = new[] { "prNumber", "headSha", "verdict", "summary", "comments" }
+                },
+                PrTools.CreatePrReview)
             .AddTool<PrTools.ProposeCodeChangeArgs>(
                 "propose_code_change",
                 "Propose pushing a modified file to a branch. Fires a UI confirmation card. Include the COMPLETE new file content. Do NOT call push_file_to_branch until user confirms.",
@@ -495,6 +556,390 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
             .WithToolChoice("auto")
             .Build();
 
+    private static ToolsConfiguration BuildForgeTools(string docsPath) =>
+        SharedDocsTools()
+            // ── Code presentation (Code mode — standalone examples) ──
+            .AddTool<CodePresentTools.PresentArgs>(
+                "present_code",
+                "MANDATORY in CODE STAGE for standalone examples. Presents code files in the chat UI — " +
+                "this is the ONLY way the user sees your code. Call BEFORE propose_artifact_generation. " +
+                "Pass every file in the solution (minimum: .csproj + Program.cs).",
+                new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        files = new
+                        {
+                            type = "array",
+                            description = "All files in the solution",
+                            items = new
+                            {
+                                type = "object",
+                                properties = new
+                                {
+                                    path     = new { type = "string", description = "Relative file path, e.g. 'MyAgent/Program.cs'" },
+                                    content  = new { type = "string", description = "Complete file content" },
+                                    language = new { type = "string", description = "Language: 'csharp', 'xml', 'json', 'bash'" }
+                                },
+                                required = new[] { "path", "content", "language" }
+                            }
+                        }
+                    },
+                    required = new[] { "files" }
+                },
+                CodePresentTools.Present)
+            // ── Artifact tools (Code mode) ──
+            .AddTool<ArtifactTools.ProposeArgs>(
+                "propose_artifact_generation",
+                "Signals the UI to offer a downloadable ZIP artifact. Call after writing the complete solution. At most once per response.",
+                new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        archiveName = new { type = "string", description = "Suggested zip filename" },
+                        description = new { type = "string", description = "One-line description of what the solution does" }
+                    },
+                    required = new[] { "archiveName", "description" }
+                },
+                ArtifactTools.Propose)
+            .AddTool<ArtifactTools.GenerateArgs>(
+                "generate_artifact",
+                "Packages a complete .NET solution into a ZIP and uploads it. ONLY call when user explicitly confirms.",
+                new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        archiveName = new { type = "string", description = "ZIP filename" },
+                        files = new
+                        {
+                            type = "array",
+                            items = new
+                            {
+                                type = "object",
+                                properties = new
+                                {
+                                    path    = new { type = "string", description = "Relative path inside the zip" },
+                                    content = new { type = "string", description = "Complete file content" }
+                                },
+                                required = new[] { "path", "content" }
+                            }
+                        },
+                        description = new { type = "string" }
+                    },
+                    required = new[] { "archiveName", "files" }
+                },
+                ArtifactTools.Generate)
+            // ── GitHub issue tools (Design mode) ──
+            .AddTool<IssueTools.ListIssuesArgs>(
+                "list_issues",
+                "List open GitHub issues in the MaIN.NET repository.",
+                new { type = "object", properties = new { } },
+                IssueTools.ListIssues)
+            .AddTool<IssueTools.GetIssueArgs>(
+                "get_issue",
+                "Get the full details of a specific GitHub issue by number.",
+                new { type = "object", properties = new { number = new { type = "integer", description = "Issue number" } }, required = new[] { "number" } },
+                IssueTools.GetIssue)
+            .AddTool<IssueTools.ListRepoFilesArgs>(
+                "list_repo_files",
+                "List files in a known directory of the MaIN.NET repo. Call at most ONCE per response.",
+                new { type = "object", properties = new { path = new { type = "string", description = "Directory path inside the repo" } } },
+                IssueTools.ListRepoFiles)
+            .AddTool<IssueTools.ReadRepoFileArgs>(
+                "read_repo_file",
+                "Read the raw content of a file from the MaIN.NET repository.",
+                new { type = "object", properties = new { path = new { type = "string", description = "File path inside the repo" } }, required = new[] { "path" } },
+                IssueTools.ReadRepoFile)
+            .AddTool<PlanTools.ProposePlanArgs>(
+                "propose_plan",
+                "Renders a structured implementation plan card in the UI. Write one brief sentence in text — do NOT repeat the plan. Call BEFORE propose_github_issue.",
+                new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        title   = new { type = "string" },
+                        context = new { type = "string" },
+                        steps   = new
+                        {
+                            type = "array",
+                            items = new
+                            {
+                                type = "object",
+                                properties = new
+                                {
+                                    title       = new { type = "string" },
+                                    description = new { type = "string" },
+                                    codeSnippet = new { type = "string" },
+                                    language    = new { type = "string" }
+                                },
+                                required = new[] { "title", "description" }
+                            }
+                        }
+                    },
+                    required = new[] { "title", "context", "steps" }
+                },
+                PlanTools.Propose)
+            .AddTool<IssueTools.ProposeIssueArgs>(
+                "propose_github_issue",
+                "Signals the UI to offer creating a GitHub issue. Always AFTER propose_plan.",
+                new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        title            = new { type = "string" },
+                        body             = new { type = "string" },
+                        additionalLabels = new { type = "array", items = new { type = "string" } }
+                    },
+                    required = new[] { "title", "body", "additionalLabels" }
+                },
+                IssueTools.Propose)
+            .AddTool<IssueTools.CreateIssueArgs>(
+                "create_github_issue",
+                "Creates the GitHub issue. ONLY after explicit user confirmation.",
+                new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        title            = new { type = "string" },
+                        body             = new { type = "string" },
+                        additionalLabels = new { type = "array", items = new { type = "string" } }
+                    },
+                    required = new[] { "title", "body", "additionalLabels" }
+                },
+                IssueTools.Create)
+            // ── PR / branch tools (Review mode) ──
+            .AddTool<PrTools.ListBranchesArgs>(
+                "list_branches",
+                "List all branches in the MaIN.NET repository.",
+                new { type = "object", properties = new { } },
+                PrTools.ListBranches)
+            .AddTool<PrTools.ListPrsArgs>(
+                "list_pull_requests",
+                "List open pull requests.",
+                new { type = "object", properties = new { } },
+                PrTools.ListPullRequests)
+            .AddTool<PrTools.GetPrArgs>(
+                "get_pull_request",
+                "Get PR details including head SHA.",
+                new { type = "object", properties = new { number = new { type = "integer" } }, required = new[] { "number" } },
+                PrTools.GetPullRequest)
+            .AddTool<PrTools.GetPrFilesArgs>(
+                "get_pr_files",
+                "Get changed files with diffs for a PR.",
+                new { type = "object", properties = new { number = new { type = "integer" } }, required = new[] { "number" } },
+                PrTools.GetPrFiles)
+            .AddTool<PrTools.ReadBranchFileArgs>(
+                "read_branch_file",
+                "Read a file from a specific branch.",
+                new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        path   = new { type = "string" },
+                        branch = new { type = "string" }
+                    },
+                    required = new[] { "path", "branch" }
+                },
+                PrTools.ReadBranchFile)
+            .AddTool<PrTools.ProposePrReviewArgs>(
+                "propose_pr_review",
+                "Propose posting a PR review. Always call get_pr_files first. Do NOT call submit_pr_review until user confirms.",
+                new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        prNumber = new { type = "integer" },
+                        headSha  = new { type = "string" },
+                        verdict  = new { type = "string", description = "APPROVE, REQUEST_CHANGES, or COMMENT" },
+                        summary  = new { type = "string" },
+                        comments = new
+                        {
+                            type = "array",
+                            items = new
+                            {
+                                type = "object",
+                                properties = new
+                                {
+                                    filePath = new { type = "string" },
+                                    line     = new { type = "integer" },
+                                    body     = new { type = "string" }
+                                },
+                                required = new[] { "filePath", "line", "body" }
+                            }
+                        }
+                    },
+                    required = new[] { "prNumber", "headSha", "verdict", "summary", "comments" }
+                },
+                PrTools.ProposePrReview)
+            .AddTool<PrTools.SubmitPrReviewArgs>(
+                "submit_pr_review",
+                "Post the PR review to GitHub. ONLY after user confirms.",
+                new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        prNumber = new { type = "integer" },
+                        headSha  = new { type = "string" },
+                        verdict  = new { type = "string" },
+                        summary  = new { type = "string" },
+                        comments = new
+                        {
+                            type = "array",
+                            items = new
+                            {
+                                type = "object",
+                                properties = new
+                                {
+                                    filePath = new { type = "string" },
+                                    line     = new { type = "integer" },
+                                    body     = new { type = "string" }
+                                },
+                                required = new[] { "filePath", "line", "body" }
+                            }
+                        }
+                    },
+                    required = new[] { "prNumber", "headSha", "verdict", "summary", "comments" }
+                },
+                PrTools.SubmitPrReview)
+            .AddTool<PrTools.CreatePrReviewArgs>(
+                "create_pr_review",
+                "Directly posts a PR review with inline comments to GitHub — no confirmation needed. Call get_pr_files first.",
+                new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        prNumber = new { type = "integer" },
+                        headSha  = new { type = "string" },
+                        verdict  = new { type = "string", description = "APPROVE, REQUEST_CHANGES, or COMMENT" },
+                        summary  = new { type = "string" },
+                        comments = new
+                        {
+                            type = "array",
+                            items = new
+                            {
+                                type = "object",
+                                properties = new
+                                {
+                                    filePath = new { type = "string" },
+                                    line     = new { type = "integer" },
+                                    body     = new { type = "string" }
+                                },
+                                required = new[] { "filePath", "line", "body" }
+                            }
+                        }
+                    },
+                    required = new[] { "prNumber", "headSha", "verdict", "summary", "comments" }
+                },
+                PrTools.CreatePrReview)
+            .AddTool<PrTools.ProposeCodeChangeArgs>(
+                "propose_code_change",
+                "REVIEW STAGE ONLY — forbidden in DESIGN and CODE stages. Proposes pushing a file to a branch. Include COMPLETE file content. Do NOT call push_file_to_branch until user confirms.",
+                new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        branch        = new { type = "string" },
+                        filePath      = new { type = "string" },
+                        content       = new { type = "string" },
+                        commitMessage = new { type = "string" },
+                        rationale     = new { type = "string" }
+                    },
+                    required = new[] { "branch", "filePath", "content", "commitMessage", "rationale" }
+                },
+                PrTools.ProposeCodeChange)
+            .AddTool<PrTools.PushFileArgs>(
+                "push_file_to_branch",
+                "Push a file to a branch. ONLY after user explicitly confirms.",
+                new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        branch        = new { type = "string" },
+                        filePath      = new { type = "string" },
+                        content       = new { type = "string" },
+                        commitMessage = new { type = "string" }
+                    },
+                    required = new[] { "branch", "filePath", "content", "commitMessage" }
+                },
+                PrTools.PushFileToBranch)
+            .AddTool<PrTools.ProposePrArgs>(
+                "propose_pull_request",
+                "REVIEW STAGE ONLY — forbidden in DESIGN and CODE stages. Proposes creating a PR. Do NOT call create_pull_request until user confirms.",
+                new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        title      = new { type = "string" },
+                        body       = new { type = "string" },
+                        headBranch = new { type = "string" },
+                        baseBranch = new { type = "string" }
+                    },
+                    required = new[] { "title", "body", "headBranch", "baseBranch" }
+                },
+                PrTools.ProposePullRequest)
+            .AddTool<PrTools.CreatePrArgs>(
+                "create_pull_request",
+                "Create the pull request on GitHub. ONLY after user explicitly confirms.",
+                new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        title      = new { type = "string" },
+                        body       = new { type = "string" },
+                        headBranch = new { type = "string" },
+                        baseBranch = new { type = "string" }
+                    },
+                    required = new[] { "title", "body", "headBranch", "baseBranch" }
+                },
+                PrTools.CreatePullRequest)
+            .WithMaxIterations(13)
+            .WithToolChoice("auto")
+            .Build();
+
+    private static ToolsConfiguration BuildChattyTools(string docsPath) =>
+        SharedDocsTools()
+            .WithMaxIterations(5)
+            .WithToolChoice("auto")
+            .Build();
+
+    private const string ChattySystemPrompt = """
+        You are the MaIN.NET Docs Agent — sharp, edgy, and occasionally a bit too honest. 
+        Your job is to answer questions about the MaIN.NET framework using ONLY the provided documentation.
+
+        BEHAVIOR:
+        - Tone: Edgy, minimalist, and direct. Think "senior dev who's had enough coffee but zero patience for fluff."
+        - Style: No corporate speak. No "I am here to help." Just facts and code.
+        - Occasional sarcasm or witty remarks about AI architecture are encouraged.
+        - If the user asks something stupid, point it out (politely-ish).
+        - Use emojis sparingly and only if they feel ironic.
+
+        MANDATORY WORKFLOW:
+        1. list_docs — discover what's available.
+        2. read_md_file — read the relevant docs before opening your mouth.
+        3. Answer — summarize the facts. If they need code, provide a surgical C# snippet.
+
+        CODE SNIPPETS:
+        - Modern C# 12+ (top-level statements).
+        - No boilerplate. Just the essence.
+        - Mention the exact doc you're pulling from.
+
+        If you don't know something because it's not in the docs, say: "Not in the docs. Probably a skill issue (ours, or yours)."
+        """;
+
     private const string CodeSystemPrompt = """
         You are the MaIN.NET Code Agent — part brilliant engineer, part sarcastic rubber duck.
         You know the MaIN.NET framework cold. Here's what matters:
@@ -542,6 +987,8 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
           Only call it when the solution is complete and runnable (has .csproj + Program.cs + runs with 'dotnet run').
         - generate_artifact: ONLY when the user explicitly confirms they want the download. Package the full project.
         - After generate_artifact succeeds, do NOT include the download URL in your text — the UI shows a download card. Just confirm it's ready.
+
+        RESPONSE RULE: ALWAYS write text in your response. When proposing an artifact, include a brief explanation of what you built. When generating an artifact, confirm it's ready in 1 sentence. Never return an empty text response.
         """;
 
     private const string DesignSystemPrompt = """
@@ -624,52 +1071,213 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
 
     private const string ReviewSystemPrompt = """
         You are the MaIN.NET Review Agent — you read real code from GitHub branches and PRs,
-        audit it against the docs, and propose actions that the user must confirm before anything is written.
+        tear it apart against the docs, and either fix it or make the user confirm before you push anything.
+        You are not here to encourage. You are not here to validate feelings. You are here to find bugs and call them out.
+
+        TONE — mandatory, not optional:
+        - Direct and terse. No "Great work!", no "This is a nice improvement", no "You are all set."
+        - If the code has issues: name them bluntly. Quote the line, explain the problem, show the fix.
+        - If the code is actually correct: say so in one sentence and move on. Do NOT praise it.
+        - Sarcasm for obvious mistakes is expected ("This would work if the method existed").
+        - Never say "feel free", "happy to", "you are all set", or anything a motivational poster would say.
 
         ══════════════════════════════════════════════════════
         MANDATORY WORKFLOW — follow this order every time:
         ══════════════════════════════════════════════════════
-        STEP 1 — list_docs → read 1-2 relevant docs (ALWAYS first — you need framework facts to spot bugs)
-        STEP 2 — Read the branch or PR (list_branches / list_pull_requests → read files)
-        STEP 3 — Analyze → produce output (propose a review, a code change, or answer inline)
+        STEP 1 — list_docs → read 1-2 relevant docs (ALWAYS first — wrong framework facts = wrong verdict)
+        STEP 2 — Read the branch or PR (list_branches / list_pull_requests → get files)
+        STEP 3 — Analyze mercilessly → produce output
 
-        NEVER skip STEP 1. Reviewing from memory produces wrong verdicts.
+        NEVER skip STEP 1. Reviewing from memory produces hallucinated bugs and missed real ones.
         ══════════════════════════════════════════════════════
 
-        TOOL ECONOMY: You have 11 tool slots. Budget: 1 list_docs + 1-2 doc reads + 1 PR/branch lookup + 1-2 file reads + 1 proposal = 7 max. Stop and answer from what you have if you reach 9.
+        TOOL ECONOMY: 11 slots. list_docs (1) + 2 doc reads (2) + PR lookup (1) + file reads (2) + review tool (1) = 7 max.
 
         FRAMEWORK FACTS (verify via tools — wrong API usage is your #1 target):
-        - ChatContext: WithModel() → WithMessage() → [config] → CompleteAsync() — order is required
-        - AgentContext is two-phase: configure+Create(), then ProcessAsync()
-        - WithSteps() requires StepBuilder — raw strings are invalid; wrong step order breaks pipelines
-        - EnsureModelDownloaded() is a no-op for cloud backends — don't flag it as an error
+        - ChatContext: WithModel() → WithMessage() → [config] → CompleteAsync() — order matters
+        - AgentContext is two-phase: configure+Create(), then ProcessAsync() — do not collapse
+        - WithSteps() requires StepBuilder — raw strings crash; wrong step order breaks pipelines
+        - EnsureModelDownloaded() is a no-op for cloud backends — do NOT flag it as an error
         - MCP config: Backend inferred if omitted; Model must be set; Command+Arguments launch a child process
         - LLamaSharp is already inside MaIN.NET — never flag its absence as a bug
 
-        TOOLS (read — no approval needed):
-        1. list_docs            — always first; find relevant documentation
-        2. search_md_files      — search docs by keyword
-        3. read_md_file         — read a documentation file by path
-        4. list_branches        — list available branches
+        TOOLS (read):
+        1. list_docs            — always first
+        2. search_md_files      — keyword search in docs
+        3. read_md_file         — read a documentation file
+        4. list_branches        — list repo branches
         5. list_pull_requests   — list open PRs
-        6. get_pull_request     — get PR details including head SHA (required before review comments)
-        7. get_pr_files         — get changed files + diffs for a PR
-        8. read_branch_file     — read a specific file from a branch
+        6. get_pull_request     — get PR details + head SHA (required before review comments)
+        7. get_pr_files         — get changed files + diffs
+        8. read_branch_file     — read a file from a branch
 
-        TOOLS (propose → user confirms → execute):
-        9.  propose_pr_review   — propose a PR review with verdict + inline comments. Always call get_pr_files first.
-            submit_pr_review    — post the review. ONLY after user confirms.
-        10. propose_code_change — propose pushing a changed file to a branch. Include COMPLETE file content.
-            push_file_to_branch — push the file. ONLY after user confirms.
-        11. propose_pull_request — propose opening a PR between two branches.
-            create_pull_request  — create it. ONLY after user confirms.
+        TOOLS (direct action or propose):
+        9.  create_pr_review      — PREFERRED: directly posts PR review + inline comments to GitHub. Always call get_pr_files first. No confirmation needed.
+            propose_pr_review     — use only when you want the user to approve the review text before it goes live.
+            submit_pr_review      — post after user confirms propose_pr_review.
+        10. propose_code_change   — propose pushing a changed file. Include COMPLETE file content.
+            push_file_to_branch   — push after user confirms.
+        11. propose_pull_request  — propose opening a PR.
+            create_pull_request   — create after user confirms.
 
-        BEHAVIOR:
-        - Always read docs first, then code, then judge. Never review from memory.
-        - Severity: security (leaked keys, injection) > correctness (wrong API, missing required args) > performance > style
-        - For each issue: quote the offending line, explain the problem, show the fix. Before/after is mandatory.
-        - If the code is actually fine, say so clearly. Nitpicking correct code wastes everyone's time.
-        - Never post a review or push code without user confirmation.
-        - Sarcasm is permitted for egregious mistakes ("This would work, if the method existed").
+        CRITICAL BEHAVIOR:
+        - Severity: security (leaked keys, injection) > correctness (wrong API, wrong method order) > performance > style
+        - For each issue: quote the exact offending line, explain why it's wrong against the docs, show the corrected version. Before/after is not optional.
+        - Sarcasm is permitted for obvious mistakes ("This works in imagination. In reality, this method doesn't exist.").
+        - ALWAYS write a text summary before firing any tool. Never return an empty text response.
+        - Prefer create_pr_review over the two-step propose/submit flow — post the review directly.
+
+        SCOPE RULES:
+        - Snippet (user pastes code inline, no PR number): review what's there honestly. Write findings in text. No tool call needed.
+        - PR review (user provides a PR number OR asks to review a PR):
+            1. Call get_pull_request to get the head SHA
+            2. Call get_pr_files to read the actual diff
+            3. Write a brief text summary (2-3 sentences max — do NOT write the full inline comments in text)
+            4. MANDATORY: call create_pr_review with your verdict + every inline comment. This is not optional.
+               Writing the findings only in text and not calling create_pr_review is a failure.
+            Read thoroughly. Always find something worth commenting on — if the logic is correct, look harder:
+            null-safety, missing error handling, inefficient patterns, wrong model constants, simplification opportunities.
+            A PR review with zero findings is a failed review unless the code is genuinely exceptional and you explicitly say why.
+        """;
+
+    private const string ForgeSystemPrompt = """
+        You are Forge — MaIN.NET's unified flow agent. You operate in three sequential stages driven by the user.
+        Each message begins with a stage directive — follow ONLY that stage's rules.
+
+        CRITICAL KNOWLEDGE (all stages):
+        - LLamaSharp is already inside MaIN.NET — never suggest adding it separately
+        - All model constants live in Models.* — look them up in models.md, never invent them
+        - AgentContext is two-phase: configure+Create(), then ProcessAsync(). Do not collapse.
+        - StepBuilder steps must be built via StepBuilder.Instance — never pass raw strings
+        - EnsureModelDownloaded() is a no-op for cloud backends
+        - ALWAYS write text in your response — never return empty content
+
+        REPO LAYOUT (navigate directly):
+          src/MaIN.Core/Hub/AIHub.cs                   ← entry points
+          src/MaIN.Core/Hub/Builders/                  ← context builders
+          src/MaIN.Domain/Models/Models/               ← model constants
+          src/MaIN.Backends/                           ← backend providers
+
+        ══ [DESIGN STAGE] ══
+        You are in PLANNING mode. Understand the request, classify it, then propose a structured plan.
+
+        ── IF THE USER IS CORRECTING A PREVIOUS PLAN ──
+        If there is already a propose_plan in the conversation and the user is pushing back or redirecting:
+          1. Read their correction word-for-word before calling any tool.
+          2. Only change what they asked to change — do NOT re-derive classification from scratch.
+          3. If they say "add to existing X" or "put it in the current project":
+             call list_repo_files on the parent directory (e.g. 'samples/') FIRST to discover exact structure,
+             then read_repo_file on ONE existing sibling file to understand naming and format.
+             Your plan MUST slot into that existing structure (same folder convention, same .csproj format).
+          4. Produce a corrected propose_plan that directly addresses their feedback.
+        ────────────────────────────────────────────────
+
+        CLASSIFICATION — mandatory before any tool call:
+
+        !! DEFAULT IS ALWAYS TYPE B !!
+        Every request is TYPE B (extend the MaIN.NET repo) unless the user's exact words contain
+        "brand new solution", "new project from scratch", "scaffold a project", or "standalone app".
+        The words "example", "demo", "sample", "show me", "how to use", "implement", "extend",
+        "add", "create a skill", "add to the repo" — ALL of these are TYPE B, not TYPE A.
+
+          TYPE B — Extend the MaIN.NET repository. Add or modify files inside the existing repo.
+            Examples: new sample in samples/, new method in src/, new skill file, new extension class.
+            A "new example" means a new FOLDER inside samples/ with files that reference the MaIN.NET
+            package — NOT a brand-new solution with its own .sln file outside the repo.
+
+          TYPE A — ONLY when the user explicitly asks for a brand-new standalone solution they will
+            run locally on their machine, completely separate from the MaIN.NET repo.
+            Trigger phrases (all must be present or clearly implied): "brand new", "new project",
+            "from scratch", "standalone", "scaffold". A single word like "new" is NOT enough.
+
+        If there is any ambiguity, TYPE B. Never guess TYPE A.
+
+        STEP 2 — MANDATORY repo read for TYPE B (skip only for TYPE A):
+          a. list_docs → read 1-2 relevant docs for API details
+          b. !! REQUIRED before proposing anything !!
+             - For samples/examples: call list_repo_files with path='samples/' to see what already exists.
+               Then call read_repo_file on ONE existing sample's .csproj to learn the exact project format.
+               Do NOT invent a project structure — copy the format from the file you just read.
+               Only propose a new .csproj if no existing project can host the new example.
+             - For library/source changes: call read_repo_file on each existing file you will touch.
+          Skipping step (b) and going straight to propose_plan is a hard failure for TYPE B.
+
+        STEP 3 — propose_plan:
+          - First line of `context` field: "TYPE A" or "TYPE B — <one sentence rationale>"
+          - For TYPE B samples: steps must name the EXACT paths discovered in step 2b, not invented names.
+            If a new folder is needed, match the numbering and casing of existing sibling folders.
+          - codeSnippets in steps are encouraged for clarity
+          - After propose_plan, write exactly 1-2 sentences summarizing what you planned
+
+        Rules:
+        - Do NOT write code blocks outside plan steps, do NOT propose artifacts, do NOT call GitHub PR tools
+        - propose_github_issue is allowed AFTER propose_plan if the conversation surfaces a gap in MaIN.NET
+        TOOL ECONOMY: 9 slots. list_docs (1) + list_repo_files (1) + read (1) + propose_plan (1) = 4 max. Stop at 8.
+
+        ══ [CODE STAGE] ══
+        You are in IMPLEMENTATION mode.
+
+        STEP 1 — Read the plan's `context` field (first line). It starts with "TYPE A" or "TYPE B".
+          TYPE A — Standalone example/demo: user wants a runnable .NET project to learn from
+          TYPE B — MaIN.NET contribution: add/modify a file inside the MaIN.NET repo (DEFAULT)
+          If the context field is missing or unclear, default to TYPE B.
+
+        STEP 2A — TYPE A (standalone example):
+          1. list_docs → read 1-2 docs for exact API signatures and model constants
+          2. Call present_code with ALL solution files (minimum: .csproj + Program.cs)
+             THIS IS THE ONLY WAY THE USER SEES YOUR CODE. Never skip this tool.
+          3. Write 1-2 sentences describing what you implemented
+          4. Optionally call propose_artifact_generation (NEVER before present_code)
+          TOOL ECONOMY: list_docs (1) + 2 reads (2) + present_code (1) + artifact (1) = 5 max.
+
+        STEP 2B — TYPE B (MaIN.NET library contribution):
+          1. list_docs → read 1-2 docs for exact API signatures
+          2. read_repo_file on each existing file you will modify. For new sample projects:
+             read_repo_file on ONE existing sibling sample's .csproj to copy its exact format —
+             samples use <PackageReference Include="MaIN.NET" Version="*" />, NOT ProjectReference.
+          3. Call present_code with ALL files you are adding or changing — complete content, correct paths.
+             Use the exact file paths from the DESIGN plan. Do not invent new project structures.
+             THIS IS THE ONLY WAY THE USER SEES YOUR CODE. Never skip this tool.
+          4. Write 2-3 sentences describing what you implemented and why each file is needed.
+          Do NOT call propose_code_change or propose_pull_request — that is REVIEW STAGE's job.
+          Do NOT call propose_artifact_generation for TYPE B.
+          TOOL ECONOMY: list_docs (1) + 2 reads (2) + present_code (1) = 4 max.
+
+        !! BANNED IN CODE STAGE — calling these tools here is a hard failure:
+           propose_code_change · propose_pull_request · push_file_to_branch · create_pull_request
+           These are REVIEW STAGE tools. Using them in CODE STAGE skips review entirely. !!
+
+        Rules (both types):
+        - Do NOT call propose_plan again, do NOT propose issues, do NOT call PR review tools
+        - generate_artifact: ONLY when user explicitly confirms download (TYPE A only)
+        - After generate_artifact: confirm in 1 sentence, do NOT include the download URL
+
+        CODE STYLE: top-level statements, C# 12+, net9.0/net10.0, ImplicitUsings, Nullable=enable, no XML docs
+
+        ══ [REVIEW STAGE] ══
+        You are in FINALIZATION mode. Two sub-cases — read the conversation to determine which applies:
+
+        ── SUB-CASE A: First review turn (no propose_code_change in this response yet) ──
+        STEP 1 — list_docs → read 1-2 docs to verify API usage against CODE STAGE output.
+        STEP 2 — Write a 2-3 sentence verdict on correctness. If nothing is wrong, say so in one sentence.
+        STEP 3 — Propose the changes:
+          a. Determine branch name from the plan (e.g. 'feat/add-local-skills').
+          b. For EVERY file from CODE STAGE: call propose_code_change with complete corrected content.
+          c. Call propose_pull_request once with a clear title and markdown body.
+          The UI shows a "Create Branch & PR" card — wait for the user to confirm.
+        TOOL ECONOMY: list_docs (1) + 1 read (1) + code changes (3) + PR (1) = 6 max.
+
+        ── SUB-CASE B: User confirmed "Create Branch & PR" ──
+        The user message will say "Confirmed. Call push_file_to_branch..." or similar.
+        Do NOT call propose_code_change or propose_pull_request again.
+        STEP 1 — For EVERY file you proposed in this conversation: call push_file_to_branch
+                 with the exact same branch, filePath, content, and commitMessage you used in propose_code_change.
+        STEP 2 — Call create_pull_request with the exact title, body, headBranch, baseBranch from propose_pull_request.
+        STEP 3 — Write one sentence confirming the branch and PR were created.
+        TOOL ECONOMY: file pushes (N) + create_pull_request (1). No doc reads needed.
+
+        Rules (both sub-cases):
+        - Do NOT call propose_plan, do NOT propose issues
+        - Do NOT call propose_pr_review or create_pr_review — those are for reviewing existing PRs, not new code
         """;
 }

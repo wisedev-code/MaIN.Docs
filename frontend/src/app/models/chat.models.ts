@@ -56,6 +56,20 @@ export interface PrProposal {
   baseBranch: string;
 }
 
+export interface PresentedCodeFile {
+  path: string;
+  content: string;
+  language: string;
+}
+
+export interface ReviewPosted {
+  prNumber: number;
+  verdict: string;
+  summary: string;
+  commentCount: number;
+  url: string;
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -71,6 +85,9 @@ export interface ChatMessage {
   codeChangeProposed?: CodeChangeProposal;
   prProposed?: PrProposal;
   prUrl?: string;
+  presentedCode?: PresentedCodeFile[];
+  reviewPosted?: ReviewPosted;
+  isError?: boolean;
   attachments?: Attachment[];
 }
 
@@ -85,12 +102,28 @@ export interface AgentDefinition {
   tagline: string;
   description: string;
   icon: string;
+  special?: boolean;
+  beta?: boolean;
   capabilities: AgentCapability[];
   tools: string[];
   bestFor: string[];
 }
 
 export const AGENTS: AgentDefinition[] = [
+  {
+    id: 'chatty',
+    name: 'Chatty',
+    tagline: 'Framework facts & documentation',
+    description: 'The sharpest way to explore MaIN.NET. Answers questions from the docs with directness and a bit of attitude. Best for quick lookups and architectural sanity checks.',
+    icon: '!',
+    capabilities: [
+      { label: 'Doc lookup',      description: '' },
+      { label: 'Quick Q&A',       description: '' },
+      { label: 'Surgical snippets', description: '' },
+    ],
+    tools: ['Documentation search'],
+    bestFor: ['Learning APIs', 'Sanity checks', 'Quick facts'],
+  },
   {
     id: 'code',
     name: 'Code',
@@ -135,5 +168,22 @@ export const AGENTS: AgentDefinition[] = [
     ],
     tools: ['GitHub', 'Doc search', 'Static analysis', 'Dotnet skills'],
     bestFor: ['Debugging issues', 'Code quality', 'Docker / deployment', 'Configuration errors'],
+  },
+  {
+    id: 'forge',
+    name: 'Forge',
+    tagline: 'Code, design, and review — unified',
+    description: 'The all-in-one agent. Generates code, architects systems, plans implementations, reviews PRs, and takes GitHub actions — all in a single conversation.',
+    icon: '⬡',
+    special: true,
+    beta: true,
+    capabilities: [
+      { label: 'Code generation', description: '' },
+      { label: 'System design',   description: '' },
+      { label: 'PR review',       description: '' },
+      { label: 'GitHub actions',  description: '' },
+    ],
+    tools: ['All tools', 'GitHub', 'Artifacts', 'Doc search'],
+    bestFor: ['Complex tasks', 'End-to-end workflows', 'When unsure which agent', 'Mixed code + review'],
   },
 ];
