@@ -122,6 +122,21 @@ public class GitHubService(HttpClient http, IConfiguration config, ILogger<GitHu
         return entry.Content ?? "(empty)";
     }
 
+    public async Task<string> CreateBranchAsync(string branchName, string baseBranch)
+    {
+        var refJson = await http.GetStringAsync($"/repos/{Repo}/git/ref/heads/{Uri.EscapeDataString(baseBranch)}");
+        using var refDoc = JsonDocument.Parse(refJson);
+        var sha = refDoc.RootElement.GetProperty("object").GetProperty("sha").GetString()!;
+
+        var payload = JsonSerializer.Serialize(new { @ref = $"refs/heads/{branchName}", sha });
+        var response = await http.PostAsync(
+            $"/repos/{Repo}/git/refs",
+            new StringContent(payload, Encoding.UTF8, "application/json"));
+        response.EnsureSuccessStatusCode();
+        logger.LogInformation("Created branch {Branch} from {Base} ({Sha})", branchName, baseBranch, sha[..7]);
+        return branchName;
+    }
+
     public async Task<string> ListBranchesAsync()
     {
         var json = await http.GetStringAsync($"/repos/{Repo}/branches?per_page=100");
@@ -159,7 +174,9 @@ public class GitHubService(HttpClient http, IConfiguration config, ILogger<GitHu
     public async Task<string> SubmitPrReviewAsync(
         int prNumber, string headSha, string reviewEvent, string body, List<PrReviewComment> comments)
     {
-        var payload = JsonSerializer.Serialize(new
+        // Try with inline comments first; fall back to body-only if GitHub rejects line numbers
+        // (lines must be part of the diff context — not all file lines are valid targets)
+        var withComments = JsonSerializer.Serialize(new
         {
             commit_id = headSha,
             body,
@@ -172,6 +189,7 @@ public class GitHubService(HttpClient http, IConfiguration config, ILogger<GitHu
                 body = c.Body
             })
         });
+
         var response = await http.PostAsync(
             $"/repos/{Repo}/pulls/{prNumber}/reviews",
             new StringContent(payload, Encoding.UTF8, "application/json"));

@@ -82,6 +82,7 @@ export interface ChatMessage {
   issueUrl?: string;
   planProposed?: PlanProposal;
   reviewProposed?: PrReviewProposal;
+  reviewUrl?: string;
   codeChangeProposed?: CodeChangeProposal;
   prProposed?: PrProposal;
   prUrl?: string;
@@ -89,6 +90,8 @@ export interface ChatMessage {
   reviewPosted?: ReviewPosted;
   isError?: boolean;
   attachments?: Attachment[];
+  agentId?: string;
+  branchName?: string;
 }
 
 export interface AgentCapability {

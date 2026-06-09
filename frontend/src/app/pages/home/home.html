@@ -14,6 +14,49 @@
           <span class="hero-sub-accent">MaIN.NET</span>
           <span class="hero-sub-dim">— code, architecture, or debugging.</span>
         </p>
+        @if (selectedAgent().id === 'flow') {
+          <div class="flow-info-panel">
+            <div class="flow-stages">
+              <div class="fsi-stage">
+                <div class="fsi-icon">Δ</div>
+                <span class="fsi-label">Design</span>
+                <span class="fsi-desc">Analyses your request and produces a concrete implementation plan</span>
+              </div>
+              <div class="fsi-arrow">→</div>
+              <div class="fsi-stage">
+                <div class="fsi-icon">#</div>
+                <span class="fsi-label">Code</span>
+                <span class="fsi-desc">Reads the codebase and proposes precise file changes on a new branch</span>
+              </div>
+              <div class="fsi-arrow">→</div>
+              <div class="fsi-stage">
+                <div class="fsi-icon">~</div>
+                <span class="fsi-label">Review</span>
+                <span class="fsi-desc">Audits the changes and opens a pull request to main</span>
+              </div>
+            </div>
+            <p class="flow-info-hint">Each stage completes before the next begins. You approve every handoff.</p>
+          </div>
+        }
+      </div>
+    }
+
+    @if (ensembleStep() !== 'idle') {
+      <div class="ensemble-steps">
+        <div class="es-step" [class.active]="ensembleStep() === 'design'" [class.done]="isDone('design')">
+          <div class="es-circle">Δ</div>
+          <span class="es-label">Design</span>
+        </div>
+        <div class="es-connector" [class.filled]="isDone('design')"></div>
+        <div class="es-step" [class.active]="ensembleStep() === 'code'" [class.done]="isDone('code')">
+          <div class="es-circle">#</div>
+          <span class="es-label">Code</span>
+        </div>
+        <div class="es-connector" [class.filled]="isDone('code')"></div>
+        <div class="es-step" [class.active]="ensembleStep() === 'review' || ensembleStep() === 'done'" [class.done]="isDone('review')">
+          <div class="es-circle">~</div>
+          <span class="es-label">Review</span>
+        </div>
       </div>
     }
 
@@ -31,7 +74,7 @@
             }
             <div class="msg-body">
               @if (msg.role === 'assistant') {
-                <div class="msg-agent-name">{{ selectedAgent().name }}</div>
+                <div class="msg-agent-name">{{ getAgentById(msg.agentId).name }}</div>
               }
 
               @if (msg.role === 'user' && msg.attachments && msg.attachments.length > 0) {

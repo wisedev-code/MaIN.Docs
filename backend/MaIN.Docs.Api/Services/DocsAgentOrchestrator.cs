@@ -97,14 +97,14 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
             ArtifactTools.SetProposalCapture(p => artifactProposed = new ArtifactProposal(p.ArchiveName, p.Description));
         }
 
-        if (agentId == "design")
+        if (agentId is "design" or "ensemble-design")
         {
             IssueTools.SetProposalCapture(p => issueProposed = new IssueProposal(p.Title, p.Body));
             IssueTools.SetUrlCapture(url => issueUrl = url);
             PlanTools.SetCapture(plan => planProposed = plan);
         }
 
-        if (agentId == "review")
+        if (agentId is "review" or "ensemble-review")
         {
             PrTools.SetReviewCapture(r => reviewProposed = r);
             PrTools.SetReviewPostedCapture(r => reviewPosted = r);
@@ -182,6 +182,73 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
     }
 
     public bool IsAvailable(string agentId) => _agents.ContainsKey(agentId);
+
+    public Task<AgentResult> ProcessEnsembleDesignAsync(IEnumerable<Message> messages, CancellationToken ct) =>
+        ProcessAsync("ensemble-design", messages, ct);
+
+    public async Task<(AgentResult Result, string BranchName, int FilesChanged)> ProcessEnsembleCodeAsync(
+        string originalMessage, string designContent, CancellationToken ct)
+    {
+        var branchName = $"flow/{DateTime.UtcNow:yyyyMMdd-HHmmss}";
+        await githubService.CreateBranchAsync(branchName, "main");
+        PrTools.ClearPendingCodeChanges();
+        var messages = BuildEnsembleCodeMessages(originalMessage, designContent, branchName);
+        var result = await ProcessAsync("ensemble-code", messages, ct);
+        return (result, branchName, PrTools.PendingCodeChangeCount);
+    }
+
+    public Task<AgentResult> ProcessEnsembleReviewAsync(
+        string originalMessage, string designContent, string codeContent, string branchName, CancellationToken ct)
+    {
+        var messages = BuildEnsembleReviewMessages(originalMessage, designContent, codeContent, branchName);
+        return ProcessAsync("ensemble-review", messages, ct);
+    }
+
+    private static IEnumerable<Message> BuildEnsembleCodeMessages(
+        string originalMessage, string designContent, string branchName) =>
+    [
+        new Message
+        {
+            Role = "User",
+            Content = $"""
+                [DESIGN PLAN]
+                {designContent}
+                [END DESIGN PLAN]
+
+                User request: {originalMessage}
+                Branch for changes: {branchName}
+
+                Read the relevant source files, then call propose_code_change once per file with COMPLETE new content. Target branch: {branchName}
+                """,
+            Type = MessageType.NotSet,
+            Time = DateTime.UtcNow
+        }
+    ];
+
+    private static IEnumerable<Message> BuildEnsembleReviewMessages(
+        string originalMessage, string designContent, string codeContent, string branchName) =>
+    [
+        new Message
+        {
+            Role = "User",
+            Content = $"""
+                [DESIGN PLAN]
+                {designContent}
+                [END DESIGN PLAN]
+
+                [CODE CHANGES SUMMARY]
+                {codeContent}
+                [END CODE CHANGES SUMMARY]
+
+                User request: {originalMessage}
+                Branch with changes: {branchName}
+
+                Verify the changes on branch {branchName} match the design plan, then call propose_pull_request from {branchName} to main.
+                """,
+            Type = MessageType.NotSet,
+            Time = DateTime.UtcNow
+        }
+    ];
 
     private record AgentDef(string Id, string Name, string Model, string SystemPrompt, ToolsConfiguration Tools);
 
@@ -497,7 +564,40 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
                     required = new[] { "title", "body", "headBranch", "baseBranch" }
                 },
                 PrTools.CreatePullRequest)
-            .WithMaxIterations(11)
+            .WithMaxIterations(20)
+            .WithToolChoice("auto")
+            .Build();
+
+    private static ToolsConfiguration BuildEnsembleCodeTools() =>
+        SharedDocsTools()
+            .AddTool<IssueTools.ListRepoFilesArgs>(
+                "list_repo_files",
+                "List files in a known directory of the MaIN.NET repo. Call at most ONCE per response.",
+                new { type = "object", properties = new { path = new { type = "string", description = "Directory path inside the repo" } } },
+                IssueTools.ListRepoFiles)
+            .AddTool<IssueTools.ReadRepoFileArgs>(
+                "read_repo_file",
+                "Read the raw content of a file from the MaIN.NET repository.",
+                new { type = "object", properties = new { path = new { type = "string", description = "File path inside the repo, e.g. 'src/MaIN.Core/Hub/AIHub.cs'" } }, required = new[] { "path" } },
+                IssueTools.ReadRepoFile)
+            .AddTool<PrTools.ProposeCodeChangeArgs>(
+                "propose_code_change",
+                "Queue a file change for user confirmation. Provide the COMPLETE new file content — not a diff or excerpt. One call per file.",
+                new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        branch        = new { type = "string", description = "Target branch name (provided in context)" },
+                        filePath      = new { type = "string", description = "File path in the repo" },
+                        content       = new { type = "string", description = "Complete new file content" },
+                        commitMessage = new { type = "string", description = "Commit message" },
+                        rationale     = new { type = "string", description = "Why this change is needed" }
+                    },
+                    required = new[] { "branch", "filePath", "content", "commitMessage", "rationale" }
+                },
+                PrTools.ProposeCodeChange)
+            .WithMaxIterations(15)
             .WithToolChoice("auto")
             .Build();
 
@@ -1082,7 +1182,7 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
         - Never say "feel free", "happy to", "you are all set", or anything a motivational poster would say.
 
         ══════════════════════════════════════════════════════
-        MANDATORY WORKFLOW — follow this order every time:
+        CONFIRMATION FAST PATH — CHECK THIS FIRST, EVERY TURN
         ══════════════════════════════════════════════════════
         STEP 1 — list_docs → read 1-2 relevant docs (ALWAYS first — wrong framework facts = wrong verdict)
         STEP 2 — Read the branch or PR (list_branches / list_pull_requests → get files)
@@ -1099,7 +1199,15 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
         - WithSteps() requires StepBuilder — raw strings crash; wrong step order breaks pipelines
         - EnsureModelDownloaded() is a no-op for cloud backends — do NOT flag it as an error
         - MCP config: Backend inferred if omitted; Model must be set; Command+Arguments launch a child process
-        - LLamaSharp is already inside MaIN.NET — never flag its absence as a bug
+        - LLamaSharp ships inside MaIN.NET — flagging its absence as a bug is itself a bug
+        - Backends available: Self (local GGUF), OpenAi, Gemini, Anthropic, GroqCloud, DeepSeek, Xai, Ollama, Vertex
+        - Console bootstrap: MaINBootstrapper.Initialize(); ASP.NET: services.AddMaIN(configuration)
+        Only call read_md_file if you see an API call that isn't covered above.
+
+        INLINE COMMENT GUIDANCE:
+        - The diff from get_pr_files is your source of truth. Comment only on lines visible in the diff.
+          Line numbers outside diff hunks are rejected by GitHub. Don't guess.
+        - 3-5 sharp comments beats 10 nitpicks. Correctness and security first; style last.
 
         TOOLS (read):
         1. list_docs            — always first
