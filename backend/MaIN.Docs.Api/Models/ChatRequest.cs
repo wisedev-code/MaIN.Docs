@@ -3,7 +3,7 @@ namespace MaIN.Docs.Api.Models;
 public record HistoryMessage(string Role, string Content);
 public record ChatRequest(string AgentId, string Message, List<HistoryMessage> History, List<string>? DocsAlreadyRead = null);
 public record ToolUsage(string Name, int Calls);
-public record ArtifactProposal(string ArchiveName, string Description);
+public record ArtifactProposal(string ArchiveName, string Description, string Kind);
 public record IssueProposal(string Title, string Body);
 public record PlanStep(string Title, string Description, string? CodeSnippet = null, string? Language = null);
 public record PlanProposal(string Title, string Context, List<PlanStep> Steps);

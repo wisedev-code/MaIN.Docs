@@ -14,6 +14,7 @@ export interface ToolUsage {
 export interface ArtifactProposal {
   archiveName: string;
   description: string;
+  kind: 'api' | 'console' | 'desktop';
 }
 
 export interface IssueProposal {

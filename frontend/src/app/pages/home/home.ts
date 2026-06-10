@@ -64,6 +64,7 @@ export class Home implements OnDestroy {
   currentFace = signal('');
   showArtifactPrompt = signal(false);
   artifactProposal = signal<ArtifactProposal | null>(null);
+  selectedArtifactKind = signal<'api' | 'console' | 'desktop'>('console');
   showIssuePrompt = signal(false);
   issueProposal = signal<IssueProposal | null>(null);
   showReviewPrompt = signal(false);
@@ -187,6 +188,7 @@ export class Home implements OnDestroy {
 
         if (response.artifactProposed && !response.artifactUrl) {
           this.artifactProposal.set(response.artifactProposed);
+          this.selectedArtifactKind.set(response.artifactProposed.kind);
           this.showArtifactPrompt.set(true);
         }
         if (response.issueProposed && !response.issueUrl) {
@@ -299,13 +301,33 @@ export class Home implements OnDestroy {
   dismissArtifactPrompt() {
     this.showArtifactPrompt.set(false);
     this.artifactProposal.set(null);
+    this.selectedArtifactKind.set('console');
+  }
+
+  selectArtifactKind(kind: 'api' | 'console' | 'desktop') {
+    this.selectedArtifactKind.set(kind);
   }
 
   requestArtifact() {
     const proposal = this.artifactProposal();
+    const kind = this.selectedArtifactKind();
     this.dismissArtifactPrompt();
     const hint = proposal ? ` Name the archive ${proposal.archiveName}.` : '';
-    this.inputText.set(`Please generate the downloadable artifact now.${hint}`);
+
+    if (proposal && kind !== proposal.kind) {
+      const labels: Record<'api' | 'console' | 'desktop', string> = {
+        api: 'ASP.NET Core API',
+        console: 'Console App',
+        desktop: 'MAUI Desktop App',
+      };
+      this.inputText.set(
+        `Please regenerate this as a ${labels[kind]} (read app-template-${kind}.md first), ` +
+        `showing the updated files per your rules, then generate the downloadable artifact.${hint}`
+      );
+    } else {
+      this.inputText.set(`Please generate the downloadable artifact now.${hint}`);
+    }
+
     this.send();
   }
 
@@ -545,6 +567,7 @@ export class Home implements OnDestroy {
     this.messages.set([]);
     this.showArtifactPrompt.set(false);
     this.artifactProposal.set(null);
+    this.selectedArtifactKind.set('console');
     this.showIssuePrompt.set(false);
     this.issueProposal.set(null);
     this.showReviewPrompt.set(false);

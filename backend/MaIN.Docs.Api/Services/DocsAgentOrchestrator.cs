@@ -108,7 +108,7 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
         if (agentId == "code")
         {
             ArtifactTools.SetCapture(url => artifactUrl = url);
-            ArtifactTools.SetProposalCapture(p => artifactProposed = new ArtifactProposal(p.ArchiveName, p.Description));
+            ArtifactTools.SetProposalCapture(p => artifactProposed = new ArtifactProposal(p.ArchiveName, p.Description, p.Kind));
         }
 
         if (agentId is "design" or "ensemble-design")
@@ -130,7 +130,7 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
         if (agentId == "forge")
         {
             ArtifactTools.SetCapture(url => artifactUrl = url);
-            ArtifactTools.SetProposalCapture(p => artifactProposed = new ArtifactProposal(p.ArchiveName, p.Description));
+            ArtifactTools.SetProposalCapture(p => artifactProposed = new ArtifactProposal(p.ArchiveName, p.Description, p.Kind));
             IssueTools.SetProposalCapture(p => issueProposed = new IssueProposal(p.Title, p.Body));
             IssueTools.SetUrlCapture(url => issueUrl = url);
             PlanTools.SetCapture(plan => planProposed = plan);
@@ -667,16 +667,23 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
                 "Skip it when the user is just exploring or when you'd need more details to make the code runnable. " +
                 "Call at most once per response. " +
                 "REQUIRES that the SAME response already contains the full code as fenced code blocks " +
-                "(File: <path> + ```lang block for every file) — this tool offers a download, it does not replace showing the code.",
+                "(File: <path> + ```lang block for every file) — this tool offers a download, it does not replace showing the code. " +
+                "Always pass the 'kind' arg matching the project shape you wrote (api/console/desktop) — see PROJECT KINDS.",
                 new
                 {
                     type = "object",
                     properties = new
                     {
                         archiveName = new { type = "string", description = "Suggested zip filename, e.g. MyAgent.zip" },
-                        description = new { type = "string", description = "One-line description of what the solution does" }
+                        description = new { type = "string", description = "One-line description of what the solution does" },
+                        kind = new
+                        {
+                            type = "string",
+                            @enum = new[] { "api", "console", "desktop" },
+                            description = "The project kind you just wrote: api (ASP.NET Core), console, or desktop (MAUI)."
+                        }
                     },
-                    required = new[] { "archiveName", "description" }
+                    required = new[] { "archiveName", "description", "kind" }
                 },
                 ArtifactTools.Propose)
             .AddTool<ArtifactTools.GenerateArgs>(
@@ -720,16 +727,23 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
             // ── Artifact tools (Code mode) ──
             .AddTool<ArtifactTools.ProposeArgs>(
                 "propose_artifact_generation",
-                "Signals the UI to offer a downloadable ZIP artifact. Call after writing the complete solution. At most once per response.",
+                "Signals the UI to offer a downloadable ZIP artifact. Call after writing the complete solution. At most once per response. " +
+                "Always pass the 'kind' arg matching the project shape you wrote (api/console/desktop).",
                 new
                 {
                     type = "object",
                     properties = new
                     {
                         archiveName = new { type = "string", description = "Suggested zip filename" },
-                        description = new { type = "string", description = "One-line description of what the solution does" }
+                        description = new { type = "string", description = "One-line description of what the solution does" },
+                        kind = new
+                        {
+                            type = "string",
+                            @enum = new[] { "api", "console", "desktop" },
+                            description = "The project kind you just wrote: api (ASP.NET Core), console, or desktop (MAUI)."
+                        }
                     },
-                    required = new[] { "archiveName", "description" }
+                    required = new[] { "archiveName", "description", "kind" }
                 },
                 ArtifactTools.Propose)
             .AddTool<ArtifactTools.GenerateArgs>(
@@ -1082,7 +1096,7 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
         - Console bootstrap: MaINBootstrapper.Initialize(); ASP.NET: services.AddMaIN(configuration)
         - MCP has 3 integration styles: direct prompt, agent pipeline step, RAG knowledge source
 
-        TOOL ECONOMY: You have 7 tool slots. list_docs (1) → read 1-2 docs (2) → answer. Never read the same file twice. Propose artifact counts as 1 slot.
+        TOOL ECONOMY: You have 7 tool slots. list_docs (1) → read app-template doc + maybe 1 more (2) → answer. Never read the same file twice. Propose artifact counts as 1 slot.
 
         TOOLS — use them every time, no improvising:
         1. list_docs — discover what files exist
@@ -1111,6 +1125,24 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
           · Explicit build request ("build me...", "write a complete...", "create a project..."): write the full solution.
           · Ambiguous: ask ONE sharp question about scope or use case — don't assume they want a full project.
         - Occasional sarcasm is fine ("Yes, you could also write this in 40 lines... or you could just use WithKnowledge").
+
+        PROJECT KINDS — three supported shapes for a complete solution:
+        - console: CLI/chat app (DEFAULT when the user doesn't ask for a UI or HTTP API)
+        - api: ASP.NET Core minimal API
+        - desktop: MAUI app (Windows + Mac Catalyst)
+        Before writing code for a full solution, read the matching app-template-{console,api,desktop}.md
+        doc via read_md_file — it has the exact, verified .csproj/file layout/config pattern for that
+        kind. Follow it precisely; it is written to compile on the first try. If the user later asks to
+        switch kinds (e.g. via the artifact picker), re-read the new template doc and rewrite the
+        solution (showing the new files per the ARTIFACTS rules) before calling
+        propose_artifact_generation / generate_artifact again.
+
+        CONFIG PROMPTING — every generated app MUST let the user supply backend config (model
+        path/Ollama URL for local, API keys + model names for cloud) at runtime, never hardcoded:
+        - console: interactive Console.ReadLine() setup wizard (see app-template-console.md)
+        - api: startup config validation that throws a descriptive error naming the exact
+          appsettings/env keys (see app-template-api.md)
+        - desktop: a Settings page backed by Preferences (see app-template-desktop.md)
 
         ARTIFACTS — MANDATORY ORDER, NO EXCEPTIONS:
         1. Write out EVERY file of the complete solution directly in your response TEXT first — minimum
@@ -1369,7 +1401,11 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
           If the context field is missing or unclear, default to TYPE B.
 
         STEP 2A — TYPE A (standalone example):
-          1. list_docs → read 1-2 docs for exact API signatures and model constants
+          1. list_docs → read the matching app-template-{console,api,desktop}.md doc first (it has
+             the exact, verified .csproj/file layout for that project kind — console is the default
+             when the user doesn't ask for a UI or HTTP API), plus 1 more doc if needed for extra
+             API signatures. If you call propose_artifact_generation, pass the matching
+             kind ("api"/"console"/"desktop").
           2. Write out EVERY solution file (minimum: .csproj + Program.cs) directly in your
              response, as separate fenced code blocks. Immediately before each block, write a
              line "File: <path>" so the user knows where it goes, e.g.:

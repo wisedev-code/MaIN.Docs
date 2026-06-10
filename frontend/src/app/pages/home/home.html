@@ -312,6 +312,11 @@
       <div class="artifact-prompt">
         <span class="ap-icon">⬡</span>
         <span class="ap-text">Generate runnable artifact?</span>
+        <div class="ap-kind-row">
+          <button class="ap-kind-btn" [class.active]="selectedArtifactKind() === 'console'" (click)="selectArtifactKind('console')">Console</button>
+          <button class="ap-kind-btn" [class.active]="selectedArtifactKind() === 'api'" (click)="selectArtifactKind('api')">API</button>
+          <button class="ap-kind-btn" [class.active]="selectedArtifactKind() === 'desktop'" (click)="selectArtifactKind('desktop')">Desktop</button>
+        </div>
         <div class="ap-actions">
           <button class="ap-btn ap-yes" (click)="requestArtifact()">Generate</button>
           <button class="ap-btn ap-no"  (click)="dismissArtifactPrompt()">Dismiss</button>
