@@ -89,6 +89,13 @@ export class Home implements OnDestroy {
 
   runModalArtifactUrl = signal<string | null>(null);
   runPanelOs = signal<'unix' | 'windows'>(this.detectOs());
+  capacity = signal<'normal' | 'low' | 'very-low'>('normal');
+
+  capacityMeta = computed(() => ({
+    normal:     { emoji: '✦', label: 'Full',    cls: 'cap-normal'  },
+    low:        { emoji: '◑', label: 'Reduced', cls: 'cap-low'     },
+    'very-low': { emoji: '◌', label: 'Minimal', cls: 'cap-verylow' },
+  }[this.capacity()]));
 
   hasMessages = computed(() => this.messages().length > 0);
 
@@ -173,6 +180,7 @@ export class Home implements OnDestroy {
         this.ensembleStep.set('design');
         const msgIndex = this.messages().length - 1;
         const response = await this.chatService.sendEnsembleDesign(rawText, history);
+        if (response.capacity) this.capacity.set(response.capacity as any);
         await this.revealWordByWord(response.content, msgIndex, response.toolsUsed, response.estimatedTokens,
           undefined, undefined, response.issueProposed, response.issueUrl, response.planProposed);
         this.ensembleContext.set({ question: rawText, designContent: response.content });
@@ -183,6 +191,7 @@ export class Home implements OnDestroy {
         this.showEnsembleAccept.set(true);
       } else {
         const response = await this.chatService.sendMessage(this.selectedAgent().id, apiText, history);
+        if (response.capacity) this.capacity.set(response.capacity as any);
         const msgIndex = this.messages().length - 1;
         await this.revealWordByWord(response.content, msgIndex, response.toolsUsed, response.estimatedTokens, response.artifactUrl, response.artifactProposed, response.issueProposed, response.issueUrl, response.planProposed, response.reviewProposed, response.codeChangeProposed, response.prProposed, response.prUrl, response.reviewPosted, response.docsRead);
 
@@ -454,6 +463,7 @@ export class Home implements OnDestroy {
 
       try {
         const response = await this.chatService.sendEnsembleCode(ctx.question, ctx.designContent!);
+        if (response.capacity) this.capacity.set(response.capacity as any);
         this.ensembleContext.update(c => c ? { ...c, codeContent: response.content, branchName: response.branchName } : null);
         await this.revealWordByWord(response.content, msgIndex, response.toolsUsed, response.estimatedTokens,
           undefined, undefined, undefined, undefined, undefined, undefined,
@@ -483,6 +493,7 @@ export class Home implements OnDestroy {
         try { await this.chatService.confirmCodeChange(); } catch { /* no pending changes, proceed */ }
         const response = await this.chatService.sendEnsembleReview(
           ctx.question, ctx.designContent!, ctx.codeContent!, ctx.branchName!);
+        if (response.capacity) this.capacity.set(response.capacity as any);
         await this.revealWordByWord(response.content, msgIndex, response.toolsUsed, response.estimatedTokens,
           undefined, undefined, undefined, undefined, undefined, response.reviewProposed,
           response.codeChangeProposed, response.prProposed, response.prUrl);

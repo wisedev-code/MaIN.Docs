@@ -26,10 +26,12 @@ public record ChatResponse(string Text, List<ToolUsage> ToolsUsed, int Estimated
     PrReviewProposal? ReviewProposed = null, CodeChangeProposal? CodeChangeProposed = null,
     PrProposal? PrProposed = null, string? PrUrl = null,
     ReviewPosted? ReviewPosted = null,
-    List<string>? DocsRead = null);
+    List<string>? DocsRead = null,
+    string Capacity = "normal");
 public record EnsembleDesignRequest(string Message, List<HistoryMessage> History);
 public record EnsembleCodeRequest(string OriginalMessage, string DesignContent);
 public record EnsembleReviewRequest(string OriginalMessage, string DesignContent, string CodeContent, string BranchName);
 public record EnsembleCodeResponse(string Text, List<ToolUsage> ToolsUsed, int EstimatedTokens,
     string BranchName, int FilesChanged,
-    CodeChangeProposal? CodeChangeProposed = null, PrProposal? PrProposed = null);
+    CodeChangeProposal? CodeChangeProposed = null, PrProposal? PrProposed = null,
+    string Capacity = "normal");

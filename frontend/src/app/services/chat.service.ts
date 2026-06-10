@@ -28,6 +28,7 @@ interface ChatApiResponse {
   prUrl?: string;
   reviewPosted?: ReviewPosted;
   docsRead?: string[];
+  capacity?: string;
 }
 
 interface EnsembleCodeApiResponse {
@@ -38,6 +39,7 @@ interface EnsembleCodeApiResponse {
   filesChanged: number;
   codeChangeProposed?: CodeChangeProposal;
   prProposed?: PrProposal;
+  capacity?: string;
 }
 
 export interface EnsembleCodeResponse {
@@ -48,6 +50,7 @@ export interface EnsembleCodeResponse {
   filesChanged: number;
   codeChangeProposed?: CodeChangeProposal;
   prProposed?: PrProposal;
+  capacity?: string;
 }
 
 export interface AgentResponse {
@@ -65,6 +68,7 @@ export interface AgentResponse {
   prUrl?: string;
   reviewPosted?: ReviewPosted;
   docsRead?: string[];
+  capacity?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -99,7 +103,7 @@ export class ChatService {
     );
 
     this.abortController = null;
-    return { content: response.text, toolsUsed: response.toolsUsed, estimatedTokens: response.estimatedTokens, artifactUrl: response.artifactUrl, artifactProposed: response.artifactProposed, issueProposed: response.issueProposed, issueUrl: response.issueUrl, planProposed: response.planProposed, reviewProposed: response.reviewProposed, codeChangeProposed: response.codeChangeProposed, prProposed: response.prProposed, prUrl: response.prUrl, reviewPosted: response.reviewPosted, docsRead: response.docsRead };
+    return { content: response.text, toolsUsed: response.toolsUsed, estimatedTokens: response.estimatedTokens, artifactUrl: response.artifactUrl, artifactProposed: response.artifactProposed, issueProposed: response.issueProposed, issueUrl: response.issueUrl, planProposed: response.planProposed, reviewProposed: response.reviewProposed, codeChangeProposed: response.codeChangeProposed, prProposed: response.prProposed, prUrl: response.prUrl, reviewPosted: response.reviewPosted, docsRead: response.docsRead, capacity: response.capacity };
   }
 
   private get authHeaders(): HttpHeaders {
@@ -126,7 +130,8 @@ export class ChatService {
       this.http.post<ChatApiResponse>(ENSEMBLE_DESIGN_URL, body, { headers: this.authHeaders })
     );
     return { content: response.text, toolsUsed: response.toolsUsed, estimatedTokens: response.estimatedTokens,
-      planProposed: response.planProposed, issueProposed: response.issueProposed, issueUrl: response.issueUrl };
+      planProposed: response.planProposed, issueProposed: response.issueProposed, issueUrl: response.issueUrl,
+      capacity: response.capacity };
   }
 
   async sendEnsembleCode(originalMessage: string, designContent: string): Promise<EnsembleCodeResponse> {
@@ -136,7 +141,8 @@ export class ChatService {
     );
     return { content: response.text, toolsUsed: response.toolsUsed, estimatedTokens: response.estimatedTokens,
       branchName: response.branchName, filesChanged: response.filesChanged,
-      codeChangeProposed: response.codeChangeProposed, prProposed: response.prProposed };
+      codeChangeProposed: response.codeChangeProposed, prProposed: response.prProposed,
+      capacity: response.capacity };
   }
 
   async sendEnsembleReview(originalMessage: string, designContent: string, codeContent: string, branchName: string): Promise<AgentResponse> {
@@ -146,6 +152,6 @@ export class ChatService {
     );
     return { content: response.text, toolsUsed: response.toolsUsed, estimatedTokens: response.estimatedTokens,
       reviewProposed: response.reviewProposed, codeChangeProposed: response.codeChangeProposed,
-      prProposed: response.prProposed, prUrl: response.prUrl };
+      prProposed: response.prProposed, prUrl: response.prUrl, capacity: response.capacity };
   }
 }

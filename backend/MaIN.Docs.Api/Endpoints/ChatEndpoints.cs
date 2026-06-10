@@ -40,6 +40,7 @@ public static class ChatEndpoints
         app.MapPost("/api/ensemble/design", async (
             EnsembleDesignRequest req,
             DocsAgentOrchestrator orchestrator,
+            CapacityService capacityService,
             CancellationToken ct) =>
         {
             var messages = new[]
@@ -49,8 +50,10 @@ public static class ChatEndpoints
             try
             {
                 var result = await orchestrator.ProcessEnsembleDesignAsync(messages, ct);
+                capacityService.RecordTokenUsage(result.EstimatedTokens);
                 return Results.Ok(new ChatResponse(result.Content, result.ToolsUsed, result.EstimatedTokens,
-                    null, null, result.IssueProposed, result.IssueUrl, result.PlanProposed));
+                    null, null, result.IssueProposed, result.IssueUrl, result.PlanProposed,
+                    Capacity: capacityService.GetCapacityLevel()));
             }
             catch (TimeoutException ex)
             {
@@ -61,15 +64,18 @@ public static class ChatEndpoints
         app.MapPost("/api/ensemble/code", async (
             EnsembleCodeRequest req,
             DocsAgentOrchestrator orchestrator,
+            CapacityService capacityService,
             CancellationToken ct) =>
         {
             try
             {
                 var (result, branchName, filesChanged) = await orchestrator.ProcessEnsembleCodeAsync(
                     req.OriginalMessage, req.DesignContent, ct);
+                capacityService.RecordTokenUsage(result.EstimatedTokens);
                 return Results.Ok(new EnsembleCodeResponse(
                     result.Content, result.ToolsUsed, result.EstimatedTokens,
-                    branchName, filesChanged, result.CodeChangeProposed, result.PrProposed));
+                    branchName, filesChanged, result.CodeChangeProposed, result.PrProposed,
+                    capacityService.GetCapacityLevel()));
             }
             catch (TimeoutException ex)
             {
@@ -80,16 +86,19 @@ public static class ChatEndpoints
         app.MapPost("/api/ensemble/review", async (
             EnsembleReviewRequest req,
             DocsAgentOrchestrator orchestrator,
+            CapacityService capacityService,
             CancellationToken ct) =>
         {
             try
             {
                 var result = await orchestrator.ProcessEnsembleReviewAsync(
                     req.OriginalMessage, req.DesignContent, req.CodeContent, req.BranchName, ct);
+                capacityService.RecordTokenUsage(result.EstimatedTokens);
                 return Results.Ok(new ChatResponse(
                     result.Content, result.ToolsUsed, result.EstimatedTokens,
                     null, null, null, null, null,
-                    result.ReviewProposed, result.CodeChangeProposed, result.PrProposed, result.PrUrl));
+                    result.ReviewProposed, result.CodeChangeProposed, result.PrProposed, result.PrUrl,
+                    Capacity: capacityService.GetCapacityLevel()));
             }
             catch (TimeoutException ex)
             {
@@ -101,6 +110,7 @@ public static class ChatEndpoints
     private static async Task<IResult> HandleChat(
         ChatRequest request,
         DocsAgentOrchestrator orchestrator,
+        CapacityService capacityService,
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.AgentId) || string.IsNullOrWhiteSpace(request.Message))
@@ -116,7 +126,9 @@ public static class ChatEndpoints
         {
             var messages = BuildMessages(request);
             var result = await orchestrator.ProcessAsync(request.AgentId, messages, ct);
-            return Results.Ok(new ChatResponse(result.Content, result.ToolsUsed, result.EstimatedTokens, result.ArtifactUrl, result.ArtifactProposed, result.IssueProposed, result.IssueUrl, result.PlanProposed, result.ReviewProposed, result.CodeChangeProposed, result.PrProposed, result.PrUrl, result.ReviewPosted, result.DocsRead));
+            capacityService.RecordTokenUsage(result.EstimatedTokens);
+            return Results.Ok(new ChatResponse(result.Content, result.ToolsUsed, result.EstimatedTokens, result.ArtifactUrl, result.ArtifactProposed, result.IssueProposed, result.IssueUrl, result.PlanProposed, result.ReviewProposed, result.CodeChangeProposed, result.PrProposed, result.PrUrl, result.ReviewPosted, result.DocsRead,
+                Capacity: capacityService.GetCapacityLevel()));
         }
         catch (TimeoutException ex)
         {

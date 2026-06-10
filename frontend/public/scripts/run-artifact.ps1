@@ -35,19 +35,7 @@ if (-not $projectFile) {
 }
 $projectDir = $projectFile.DirectoryName
 
-$runArgs = @()
-$csprojContent = Get-Content $projectFile.FullName -Raw
-if ($csprojContent -match 'Microsoft\.NET\.Sdk\.Maui') {
-    Write-Host "==> MAUI project detected — checking workload..." -ForegroundColor Yellow
-    $workloads = dotnet workload list 2>$null
-    if (-not ($workloads -match 'maui')) {
-        Write-Host "==> Installing MAUI workload (one-time setup)..." -ForegroundColor Yellow
-        dotnet workload install maui-windows
-    }
-    $runArgs = @("-f", "net9.0-windows10.0.19041.0")
-}
-
 Write-Host "==> Running 'dotnet run' in $projectDir" -ForegroundColor Green
 Write-Host ""
 Set-Location $projectDir
-dotnet run @runArgs
+dotnet run

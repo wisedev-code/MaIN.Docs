@@ -1,36 +1,23 @@
-# App Template — MAUI Desktop Chat App
+# App Template — Avalonia Desktop
 
-A minimal but visually polished **.NET MAUI** chat application, targeting
-**Windows and Mac Catalyst only** (no Android/iOS — MaIN.NET's native
-dependencies have no mobile assets). Use this as the exact reference when a
-user asks for a "desktop app", "GUI app", "MAUI app", or "Windows/Mac app".
+A complete, runnable Avalonia desktop application wired to MaIN.NET. Use this as
+the reference when a user asks for a "desktop app", "GUI app", or selects the
+desktop project kind.
+
+No special SDK workload required — pure NuGet packages. `dotnet run` works on
+Windows, macOS, and Linux with no extra setup.
 
 ---
 
-## Prerequisites (one-time, mention this to the user)
+## Running
 
-Building a MAUI project requires the MAUI workload. If `dotnet build` fails
-with an error about an unrecognized `Microsoft.NET.Sdk.Maui` SDK or unknown
-target framework `net9.0-windows10.0.19041.0` / `net9.0-maccatalyst`, run:
-
-```powershell
-dotnet workload install maui-windows maui-maccatalyst
+```bash
+dotnet run
 ```
 
-(or `dotnet workload install maui` to install everything, including mobile
-workloads, which are not needed here).
-
-## Running the app
-
-MAUI projects multi-target, so `dotnet run` needs an explicit `-f`:
-
-```powershell
-# Windows
-dotnet build -t:Run -f net9.0-windows10.0.19041.0
-
-# macOS
-dotnet build -t:Run -f net9.0-maccatalyst
-```
+The window opens with **Chat** and **Settings** tabs. Open **Settings** first,
+pick a backend, enter your API key (or Ollama URL), and click **Save**. Then
+switch to Chat.
 
 ---
 
@@ -39,474 +26,352 @@ dotnet build -t:Run -f net9.0-maccatalyst
 ### File: ChatDesktop/ChatDesktop.csproj
 
 ```xml
-<Project Sdk="Microsoft.NET.Sdk.Maui">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>net9.0-windows10.0.19041.0;net9.0-maccatalyst</TargetFrameworks>
-    <OutputType>Exe</OutputType>
-    <RootNamespace>ChatDesktop</RootNamespace>
-    <UseMaui>true</UseMaui>
-    <SingleProject>true</SingleProject>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <ApplicationTitle>ChatDesktop</ApplicationTitle>
-    <ApplicationId>com.maindocs.chatdesktop</ApplicationId>
-    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
-    <ApplicationVersion>1</ApplicationVersion>
-    <WindowsPackageType>None</WindowsPackageType>
-    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
-    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">15.0</SupportedOSPlatformVersion>
+    <RootNamespace>ChatDesktop</RootNamespace>
   </PropertyGroup>
-
   <ItemGroup>
-    <PackageReference Include="MaIN.NET" Version="*" />
+    <PackageReference Include="Avalonia"               Version="11.*" />
+    <PackageReference Include="Avalonia.Desktop"       Version="11.*" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.*" />
+    <PackageReference Include="MaIN.NET"               Version="*"    />
   </ItemGroup>
 </Project>
 ```
 
-`<WindowsPackageType>None</WindowsPackageType>` builds an unpackaged Windows
-app — no MSIX/certificate setup needed for `dotnet run`. No app icon, splash
-screen, or font items are declared; they are optional and can be added later
-(do not reference image/font files that don't exist in the project — that
-fails the build).
-
-### File: ChatDesktop/MauiProgram.cs
+### File: ChatDesktop/Program.cs
 
 ```csharp
-using Microsoft.Extensions.Logging;
+using Avalonia;
+using ChatDesktop;
 
-namespace ChatDesktop;
-
-public static class MauiProgram
-{
-    public static MauiApp CreateMauiApp()
-    {
-        var builder = MauiApp.CreateBuilder();
-        builder.UseMauiApp<App>();
-
-#if DEBUG
-        builder.Logging.AddDebug();
-#endif
-
-        return builder.Build();
-    }
-}
+AppBuilder.Configure<App>()
+    .UsePlatformDetect()
+    .StartWithClassicDesktopLifetime(args);
 ```
 
-### File: ChatDesktop/App.xaml
+### File: ChatDesktop/App.axaml
 
 ```xml
-<?xml version="1.0" encoding="UTF-8" ?>
-<Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="ChatDesktop.App">
-    <Application.Resources>
-        <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="Resources/Styles.xaml" />
-            </ResourceDictionary.MergedDictionaries>
-        </ResourceDictionary>
-    </Application.Resources>
+  <Application.Styles>
+    <FluentTheme />
+  </Application.Styles>
 </Application>
 ```
 
-### File: ChatDesktop/App.xaml.cs
+### File: ChatDesktop/App.axaml.cs
 
 ```csharp
-namespace ChatDesktop;
-
-public partial class App : Application
-{
-    public App()
-    {
-        InitializeComponent();
-        MainPage = new AppShell();
-    }
-}
-```
-
-### File: ChatDesktop/AppShell.xaml
-
-```xml
-<?xml version="1.0" encoding="UTF-8" ?>
-<Shell xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-       xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-       xmlns:local="clr-namespace:ChatDesktop"
-       x:Class="ChatDesktop.AppShell"
-       Title="ChatDesktop"
-       FlyoutBehavior="Disabled">
-    <TabBar>
-        <ShellContent Title="Chat" ContentTemplate="{DataTemplate local:ChatPage}" Route="chat" />
-        <ShellContent Title="Settings" ContentTemplate="{DataTemplate local:SettingsPage}" Route="settings" />
-    </TabBar>
-</Shell>
-```
-
-### File: ChatDesktop/AppShell.xaml.cs
-
-```csharp
-namespace ChatDesktop;
-
-public partial class AppShell : Shell
-{
-    public AppShell()
-    {
-        InitializeComponent();
-    }
-}
-```
-
-### File: ChatDesktop/Resources/Styles.xaml
-
-```xml
-<?xml version="1.0" encoding="UTF-8" ?>
-<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-                     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
-
-    <Color x:Key="PageBackground">#121212</Color>
-    <Color x:Key="SurfaceColor">#1E1E1E</Color>
-    <Color x:Key="AccentColor">#7C4DFF</Color>
-    <Color x:Key="UserBubbleColor">#7C4DFF</Color>
-    <Color x:Key="AssistantBubbleColor">#2A2A2A</Color>
-    <Color x:Key="TextPrimary">#FFFFFF</Color>
-    <Color x:Key="TextSecondary">#AAAAAA</Color>
-    <Color x:Key="WarningColor">#FFB74D</Color>
-
-    <Style x:Key="AssistantBubble" TargetType="Border">
-        <Setter Property="BackgroundColor" Value="{StaticResource AssistantBubbleColor}" />
-        <Setter Property="Stroke" Value="Transparent" />
-        <Setter Property="StrokeShape" Value="RoundRectangle 16,16,16,16" />
-        <Setter Property="Padding" Value="12,8" />
-        <Setter Property="Margin" Value="4,2,80,2" />
-        <Setter Property="HorizontalOptions" Value="Start" />
-    </Style>
-
-    <Style x:Key="UserBubble" TargetType="Border" BasedOn="{StaticResource AssistantBubble}">
-        <Setter Property="BackgroundColor" Value="{StaticResource UserBubbleColor}" />
-        <Setter Property="Margin" Value="80,2,4,2" />
-        <Setter Property="HorizontalOptions" Value="End" />
-    </Style>
-
-    <Style x:Key="PrimaryButton" TargetType="Button">
-        <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
-        <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
-        <Setter Property="CornerRadius" Value="10" />
-        <Setter Property="Padding" Value="16,10" />
-        <Setter Property="FontAttributes" Value="Bold" />
-    </Style>
-
-</ResourceDictionary>
-```
-
-### File: ChatDesktop/ChatBubble.cs
-
-```csharp
-using System.ComponentModel;
+using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Markup.Xaml;
 
 namespace ChatDesktop;
 
-public class ChatBubble : INotifyPropertyChanged
+public class App : Application
 {
-    private string _text = string.Empty;
+    public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
-    public string Text
+    public override void OnFrameworkInitializationCompleted()
     {
-        get => _text;
-        set
-        {
-            _text = value;
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Text)));
-        }
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            desktop.MainWindow = new MainWindow();
+        base.OnFrameworkInitializationCompleted();
     }
-
-    public bool IsUser { get; set; }
-
-    public event PropertyChangedEventHandler? PropertyChanged;
 }
 ```
 
 ### File: ChatDesktop/MaINSetup.cs
 
 ```csharp
+using System.Text.Json;
 using MaIN.Core;
+using MaIN.Domain.Configuration;
 using MaIN.Domain.Models;
-using Microsoft.Maui.Storage;
 
 namespace ChatDesktop;
+
+public record AppSettings(
+    string BackendType = "OpenAi",
+    string ModelName   = "",
+    string ApiKey      = "",
+    string OllamaUrl   = "http://localhost:11434");
 
 public static class MaINSetup
 {
     private static bool _initialized;
 
+    private static readonly string SettingsPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "ChatDesktop", "settings.json");
+
+    public static AppSettings Load()
+    {
+        if (!File.Exists(SettingsPath)) return new AppSettings();
+        try { return JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(SettingsPath)) ?? new AppSettings(); }
+        catch { return new AppSettings(); }
+    }
+
+    public static void Save(AppSettings s)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath)!);
+        File.WriteAllText(SettingsPath,
+            JsonSerializer.Serialize(s, new JsonSerializerOptions { WriteIndented = true }));
+        _initialized = false;
+    }
+
     public static void EnsureInitialized()
     {
         if (_initialized) return;
-
-        var backend = Preferences.Get("BackendType", "Ollama");
-        var apiKey = Preferences.Get("ApiKey", "");
-        var ollamaUrl = Preferences.Get("OllamaUrl", "http://localhost:11434");
-
-        MaINBootstrapper.Initialize(configureSettings: o =>
+        var s = Load();
+        MaINBootstrapper.Initialize(configureSettings: cfg =>
         {
-            switch (backend)
+            cfg.BackendType = s.BackendType switch
             {
-                case "OpenAi":
-                    o.BackendType = BackendType.OpenAi;
-                    o.OpenAiKey = apiKey;
-                    break;
-                case "Gemini":
-                    o.BackendType = BackendType.Gemini;
-                    o.GeminiKey = apiKey;
-                    break;
-                case "Anthropic":
-                    o.BackendType = BackendType.Anthropic;
-                    o.AnthropicKey = apiKey;
-                    break;
-                case "Self":
-                    o.BackendType = BackendType.Self;
-                    break;
-                default:
-                    o.BackendType = BackendType.Ollama;
-                    o.OllamaKey = ollamaUrl;
-                    break;
-            }
+                "Gemini"    => BackendType.Gemini,
+                "Anthropic" => BackendType.Anthropic,
+                "Ollama"    => BackendType.Ollama,
+                _           => BackendType.OpenAi
+            };
+            cfg.OpenAiKey    = s.ApiKey;
+            cfg.GeminiKey    = s.ApiKey;
+            cfg.AnthropicKey = s.ApiKey;
+            cfg.OllamaKey    = s.OllamaUrl;
         });
-
         _initialized = true;
     }
-
-    public static string GetModelId()
-    {
-        var backend = Preferences.Get("BackendType", "Ollama");
-        var modelName = Preferences.Get("ModelName", "");
-
-        if (!string.IsNullOrWhiteSpace(modelName)) return modelName;
-
-        return backend switch
-        {
-            "OpenAi" => Models.OpenAi.Gpt4oMini,
-            "Gemini" => Models.Gemini.Gemini2_5Flash,
-            "Anthropic" => Models.Anthropic.ClaudeHaiku4_5,
-            "Self" => Models.Local.Llama3_2_3b,
-            _ => "gemma3:4b",
-        };
-    }
-
-    /// Call after Settings are saved so the next EnsureInitialized() picks up new values.
-    public static void Reset() => _initialized = false;
 }
 ```
 
-### File: ChatDesktop/SettingsPage.xaml
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="ChatDesktop.SettingsPage"
-             Title="Settings"
-             BackgroundColor="{StaticResource PageBackground}">
-    <ScrollView>
-        <VerticalStackLayout Padding="24" Spacing="14">
-
-            <Label Text="Model Backend" TextColor="{StaticResource TextPrimary}" FontAttributes="Bold" FontSize="18" />
-            <Picker x:Name="BackendPicker" TextColor="{StaticResource TextPrimary}" BackgroundColor="{StaticResource SurfaceColor}">
-                <Picker.ItemsSource>
-                    <x:Array Type="{x:Type x:String}">
-                        <x:String>Ollama</x:String>
-                        <x:String>OpenAi</x:String>
-                        <x:String>Gemini</x:String>
-                        <x:String>Anthropic</x:String>
-                        <x:String>Self</x:String>
-                    </x:Array>
-                </Picker.ItemsSource>
-            </Picker>
-
-            <Label Text="API Key (OpenAi / Gemini / Anthropic only)" TextColor="{StaticResource TextSecondary}" />
-            <Entry x:Name="ApiKeyEntry" Placeholder="sk-..." IsPassword="True" TextColor="{StaticResource TextPrimary}" BackgroundColor="{StaticResource SurfaceColor}" />
-
-            <Label Text="Ollama Server URL (Ollama only)" TextColor="{StaticResource TextSecondary}" />
-            <Entry x:Name="OllamaUrlEntry" Placeholder="http://localhost:11434" TextColor="{StaticResource TextPrimary}" BackgroundColor="{StaticResource SurfaceColor}" />
-
-            <Label Text="Model Name (optional override, e.g. gemma3:4b)" TextColor="{StaticResource TextSecondary}" />
-            <Entry x:Name="ModelNameEntry" Placeholder="leave blank for default" TextColor="{StaticResource TextPrimary}" BackgroundColor="{StaticResource SurfaceColor}" />
-
-            <Button Text="Save" Clicked="OnSaveClicked" Style="{StaticResource PrimaryButton}" />
-
-            <Label x:Name="SavedLabel" Text="Saved!" IsVisible="False" TextColor="{StaticResource AccentColor}" HorizontalOptions="Center" />
-
-            <Label Text="Note: 'Self' (local model) currently runs on Windows only in this template, because the underlying native runtime has no Mac Catalyst build. On Mac, use Ollama or a cloud backend."
-                   TextColor="{StaticResource TextSecondary}" FontSize="12" />
-
-        </VerticalStackLayout>
-    </ScrollView>
-</ContentPage>
-```
-
-### File: ChatDesktop/SettingsPage.xaml.cs
+### File: ChatDesktop/ChatBubble.cs
 
 ```csharp
-using Microsoft.Maui.Storage;
+using System.ComponentModel;
+using Avalonia.Layout;
+using Avalonia.Media;
 
 namespace ChatDesktop;
 
-public partial class SettingsPage : ContentPage
+public class ChatBubble : INotifyPropertyChanged
 {
-    private static readonly string[] Backends = { "Ollama", "OpenAi", "Gemini", "Anthropic", "Self" };
+    private static readonly IBrush UserBg      = new SolidColorBrush(Color.Parse("#2563eb"));
+    private static readonly IBrush AssistantBg = new SolidColorBrush(Color.Parse("#374151"));
 
-    public SettingsPage()
+    private string _text = "";
+
+    public string Text
     {
-        InitializeComponent();
+        get => _text;
+        set { _text = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Text))); }
     }
 
-    protected override void OnAppearing()
-    {
-        base.OnAppearing();
+    public bool IsUser { get; init; }
 
-        var backend = Preferences.Get("BackendType", "Ollama");
-        BackendPicker.SelectedIndex = Math.Max(0, Array.IndexOf(Backends, backend));
-        ApiKeyEntry.Text = Preferences.Get("ApiKey", "");
-        OllamaUrlEntry.Text = Preferences.Get("OllamaUrl", "http://localhost:11434");
-        ModelNameEntry.Text = Preferences.Get("ModelName", "");
-        SavedLabel.IsVisible = false;
-    }
+    public HorizontalAlignment Align    => IsUser ? HorizontalAlignment.Right : HorizontalAlignment.Left;
+    public IBrush              BubbleBg => IsUser ? UserBg : AssistantBg;
 
-    private void OnSaveClicked(object? sender, EventArgs e)
-    {
-        var backend = Backends[Math.Max(0, BackendPicker.SelectedIndex)];
-
-        Preferences.Set("BackendType", backend);
-        Preferences.Set("ApiKey", ApiKeyEntry.Text ?? "");
-        Preferences.Set("OllamaUrl", string.IsNullOrWhiteSpace(OllamaUrlEntry.Text)
-            ? "http://localhost:11434"
-            : OllamaUrlEntry.Text);
-        Preferences.Set("ModelName", ModelNameEntry.Text ?? "");
-
-        MaINSetup.Reset();
-        SavedLabel.IsVisible = true;
-    }
+    public event PropertyChangedEventHandler? PropertyChanged;
 }
 ```
 
-### File: ChatDesktop/ChatPage.xaml
+### File: ChatDesktop/MainWindow.axaml
 
 ```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:local="clr-namespace:ChatDesktop"
-             x:Class="ChatDesktop.ChatPage"
-             Title="Chat"
-             BackgroundColor="{StaticResource PageBackground}">
-    <Grid RowDefinitions="Auto,*,Auto" Padding="12" RowSpacing="8">
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:ChatDesktop"
+        x:Class="ChatDesktop.MainWindow"
+        Title="MaIN Chat" Width="720" Height="560"
+        MinWidth="420" MinHeight="340">
 
-        <Label x:Name="ConfigWarning"
-               Grid.Row="0"
-               Text="Configure a model backend in the Settings tab before chatting."
-               TextColor="{StaticResource WarningColor}"
-               BackgroundColor="{StaticResource SurfaceColor}"
-               Padding="12"
-               IsVisible="False" />
+  <TabControl Margin="8">
 
-        <CollectionView x:Name="MessagesView" Grid.Row="1">
-            <CollectionView.ItemTemplate>
-                <DataTemplate x:DataType="local:ChatBubble">
-                    <Grid Padding="4,2">
-                        <Border Style="{StaticResource AssistantBubble}">
-                            <Border.Triggers>
-                                <DataTrigger TargetType="Border" Binding="{Binding IsUser}" Value="True">
-                                    <Setter Property="Style" Value="{StaticResource UserBubble}" />
-                                </DataTrigger>
-                            </Border.Triggers>
-                            <Label Text="{Binding Text}" TextColor="{StaticResource TextPrimary}" />
-                        </Border>
-                    </Grid>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-        </CollectionView>
+    <!-- CHAT TAB -->
+    <TabItem Header="Chat">
+      <Grid RowDefinitions="*,Auto" Margin="4">
 
-        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-            <Entry x:Name="InputEntry"
-                   Grid.Column="0"
-                   Placeholder="Type a message..."
-                   TextColor="{StaticResource TextPrimary}"
-                   BackgroundColor="{StaticResource SurfaceColor}"
-                   Completed="OnSendClicked" />
-            <Button x:Name="SendButton"
-                    Grid.Column="1"
-                    Text="Send"
-                    Style="{StaticResource PrimaryButton}"
-                    Clicked="OnSendClicked" />
+        <ScrollViewer Grid.Row="0" Name="ChatScroll" Margin="0,0,0,8">
+          <ItemsControl Name="MessageList">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate DataType="{x:Type local:ChatBubble}">
+                <Border HorizontalAlignment="{Binding Align}"
+                        Background="{Binding BubbleBg}"
+                        CornerRadius="8" Padding="10,6" Margin="0,3"
+                        MaxWidth="500">
+                  <TextBlock Text="{Binding Text}" TextWrapping="Wrap"
+                             Foreground="White" />
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
+          <TextBox Name="InputBox" Grid.Column="0"
+                   Watermark="Type a message and press Enter…"
+                   Margin="0,0,8,0" />
+          <Button Name="SendBtn" Grid.Column="1"
+                  Content="Send" Click="OnSend" MinWidth="72" />
         </Grid>
 
-    </Grid>
-</ContentPage>
+      </Grid>
+    </TabItem>
+
+    <!-- SETTINGS TAB -->
+    <TabItem Header="Settings">
+      <StackPanel Margin="20" Spacing="8" MaxWidth="380">
+
+        <TextBlock Text="Backend" FontWeight="SemiBold" />
+        <ComboBox Name="BackendCombo" MinWidth="180" HorizontalAlignment="Left"
+                  SelectionChanged="OnBackendChanged">
+          <ComboBoxItem Content="OpenAi" />
+          <ComboBoxItem Content="Gemini" />
+          <ComboBoxItem Content="Anthropic" />
+          <ComboBoxItem Content="Ollama" />
+        </ComboBox>
+
+        <TextBlock Text="Model" FontWeight="SemiBold" />
+        <TextBox Name="ModelBox" Watermark="e.g. gpt-4.1-mini, gemini-2.0-flash" />
+
+        <TextBlock Name="ApiKeyLabel" Text="API Key" FontWeight="SemiBold" />
+        <TextBox Name="ApiKeyBox" PasswordChar="•"
+                 Watermark="sk-… / AIza… / sk-ant-…" />
+
+        <TextBlock Name="OllamaLabel" Text="Ollama URL" FontWeight="SemiBold"
+                   IsVisible="False" />
+        <TextBox Name="OllamaBox" Watermark="http://localhost:11434"
+                 IsVisible="False" />
+
+        <Button Content="Save" Click="OnSave" MinWidth="80" Margin="0,6,0,0" />
+        <TextBlock Name="SavedLabel" Text="Settings saved."
+                   IsVisible="False" Foreground="Green" />
+
+      </StackPanel>
+    </TabItem>
+
+  </TabControl>
+</Window>
 ```
 
-### File: ChatDesktop/ChatPage.xaml.cs
+### File: ChatDesktop/MainWindow.axaml.cs
+
+> **COMPILE RULE — never add `using MaIN.Domain.Entities;` here.**
+> `Message` and `MessageType` are internal server-side types and are not
+> exported by the MaIN.NET NuGet package. They will cause CS0246/CS0103.
+> The consumer-facing `ProcessAsync(string text, tokenCallback: ...)` overload
+> takes a plain string — no `Message` object needed.
 
 ```csharp
 using System.Collections.ObjectModel;
+using Avalonia.Controls;
+using Avalonia.Threading;
 using MaIN.Core.Hub;
-using Microsoft.Maui.ApplicationModel;
-using Microsoft.Maui.Storage;
+using MaIN.Core.Hub.Contexts.Interfaces.AgentContext;
 
 namespace ChatDesktop;
 
-public partial class ChatPage : ContentPage
+public partial class MainWindow : Window
 {
-    private readonly ObservableCollection<ChatBubble> _messages = new();
+    private readonly ObservableCollection<ChatBubble> _messages = [];
+    private IAgentContextExecutor? _agent;
 
-    public ChatPage()
+    public MainWindow()
     {
         InitializeComponent();
-        MessagesView.ItemsSource = _messages;
+        MessageList.ItemsSource = _messages;
+
+        var s = MaINSetup.Load();
+        BackendCombo.SelectedIndex = s.BackendType switch
+        {
+            "Gemini"    => 1,
+            "Anthropic" => 2,
+            "Ollama"    => 3,
+            _           => 0
+        };
+        ModelBox.Text  = s.ModelName;
+        ApiKeyBox.Text = s.ApiKey;
+        OllamaBox.Text = s.OllamaUrl;
+        UpdateOllamaRow();
+
+        InputBox.KeyDown += (_, e) =>
+        {
+            if (e.Key == Avalonia.Input.Key.Enter) OnSend(null!, null!);
+        };
     }
 
-    protected override void OnAppearing()
+    private void OnBackendChanged(object? sender, SelectionChangedEventArgs e) =>
+        UpdateOllamaRow();
+
+    private void UpdateOllamaRow()
     {
-        base.OnAppearing();
-
-        var backend = Preferences.Get("BackendType", "Ollama");
-        var apiKey = Preferences.Get("ApiKey", "");
-        var ready = backend is "Ollama" or "Self" || !string.IsNullOrWhiteSpace(apiKey);
-
-        ConfigWarning.IsVisible = !ready;
-        SendButton.IsEnabled = ready;
-        InputEntry.IsEnabled = ready;
-
-        if (ready) MaINSetup.EnsureInitialized();
+        var isOllama = (BackendCombo.SelectedItem as ComboBoxItem)?.Content?.ToString() == "Ollama";
+        ApiKeyLabel.IsVisible = !isOllama;
+        ApiKeyBox.IsVisible   = !isOllama;
+        OllamaLabel.IsVisible = isOllama;
+        OllamaBox.IsVisible   = isOllama;
     }
 
-    private async void OnSendClicked(object? sender, EventArgs e)
+    private async void OnSend(object? sender, Avalonia.Interactivity.RoutedEventArgs? e)
     {
-        var text = InputEntry.Text?.Trim();
+        var text = InputBox.Text?.Trim();
         if (string.IsNullOrEmpty(text)) return;
 
-        InputEntry.Text = string.Empty;
-        SendButton.IsEnabled = false;
+        InputBox.Text     = "";
+        SendBtn.IsEnabled = false;
 
         _messages.Add(new ChatBubble { Text = text, IsUser = true });
-        var assistantBubble = new ChatBubble { IsUser = false };
-        _messages.Add(assistantBubble);
+        var reply = new ChatBubble { IsUser = false };
+        _messages.Add(reply);
+        ChatScroll.ScrollToEnd();
 
-        await AIHub.Chat()
-            .WithModel(MaINSetup.GetModelId())
-            .EnsureModelDownloaded()
-            .WithMessage(text)
-            .CompleteAsync(changeOfValue: token =>
+        try
+        {
+            MaINSetup.EnsureInitialized();
+            var s = MaINSetup.Load();
+
+            _agent ??= await AIHub.Agent()
+                .WithModel(s.ModelName)
+                .WithInitialPrompt("You are a helpful assistant.")
+                .CreateAsync();
+
+            await _agent.ProcessAsync(text, tokenCallback: token =>
             {
-                if (token is null || token.Type.ToString() != "Message")
-                    return Task.CompletedTask;
-
-                MainThread.BeginInvokeOnMainThread(() =>
+                if (string.IsNullOrEmpty(token?.Text)) return Task.CompletedTask;
+                Dispatcher.UIThread.Post(() =>
                 {
-                    assistantBubble.Text += token.Text;
+                    reply.Text += token.Text;
+                    ChatScroll.ScrollToEnd();
                 });
-
                 return Task.CompletedTask;
             });
+        }
+        catch (Exception ex)
+        {
+            reply.Text = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            SendBtn.IsEnabled = true;
+        }
+    }
 
-        SendButton.IsEnabled = true;
+    private void OnSave(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        var backend = (BackendCombo.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "OpenAi";
+        MaINSetup.Save(new AppSettings(
+            BackendType: backend,
+            ModelName:   ModelBox.Text ?? "",
+            ApiKey:      ApiKeyBox.Text ?? "",
+            OllamaUrl:   OllamaBox.Text ?? "http://localhost:11434"));
+        _agent               = null;  // recreate with new settings on next send
+        SavedLabel.IsVisible = true;
     }
 }
 ```
@@ -515,35 +380,49 @@ public partial class ChatPage : ContentPage
 
 ## Why this shape
 
-- **Two tabs (`AppShell`'s `TabBar`)**: Chat and Settings. No complex
-  navigation/gating logic — `ChatPage.OnAppearing` simply checks whether
-  enough config is present (`Ollama`/`Self` need nothing extra; cloud
-  backends need `ApiKey`) and shows a warning banner + disables input if not.
-- **`Preferences`** (`Microsoft.Maui.Storage`) is the built-in MAUI key/value
-  store — no extra NuGet package, persists across app restarts. This is the
-  "prompt user for config" mechanism for desktop.
-- **`MaINSetup.EnsureInitialized()`** calls `MaINBootstrapper.Initialize(configureSettings: ...)`
-  exactly once per process, reading the saved `Preferences`. `MaINSetup.Reset()`
-  is called after Settings are saved so the *next* chat re-initializes with
-  the new values. If your installed MaIN.NET version does not support calling
-  `Initialize` more than once per process, restart the app after changing
-  Settings instead.
-- **Streaming**: `CompleteAsync(changeOfValue: token => ...)` fires for every
-  token. `token.Type.ToString() != "Message"` filters out non-text tokens
-  (reasoning/tool-call/special) **without depending on the exact enum
-  namespace** — comparing via `ToString()` always compiles. UI updates are
-  marshaled with `MainThread.BeginInvokeOnMainThread` because MAUI throws if
-  you touch bound UI objects from a background thread — **this is the #1
-  MAUI-specific gotcha**.
-- **`ChatBubble` implements `INotifyPropertyChanged`** so the assistant's
-  bubble text grows live in the `CollectionView` as tokens arrive.
-- **Dark theme** lives entirely in `Resources/Styles.xaml` — concrete hex
-  colors and `RoundRectangle` corner radii, merged once in `App.xaml`.
+- **`AppBuilder.Configure<App>().UsePlatformDetect().StartWithClassicDesktopLifetime(args)`**
+  is the standard Avalonia desktop entry point. `UsePlatformDetect()` auto-selects
+  Win32 / AppKit / X11 / Wayland at runtime — no platform-specific flags needed.
 
-## Platform notes
+- **`MaINBootstrapper.Initialize()` must NOT be in `Program.cs`**: Avalonia's
+  `AppBuilder` hasn't started the platform layer yet at that point. Call it
+  lazily inside `MaINSetup.EnsureInitialized()`, which runs before the first
+  `AIHub.*` call in `OnSend`.
 
-- `BackendType.Self` (local GGUF via LLamaSharp) only has native binaries for
-  Windows/Linux in MaIN.NET — **default to `Ollama` on Mac Catalyst**. The
-  Settings page defaults to `Ollama` for this reason; `Self` is offered but
-  should be treated as Windows-only.
-- Building requires the MAUI workload (see Prerequisites above).
+- **`ProcessAsync(string text, tokenCallback: ...)` is the ONLY correct call form
+  in a consumer project.** Never use the `IEnumerable<Message>` overload — `Message`
+  and `MessageType` live in `MaIN.Domain.Entities` which is NOT exported by the
+  `MaIN.NET` NuGet package. Using them causes CS0246/CS0103 at compile time.
+
+- **Streaming tokens arrive on a background thread.** Always marshal back with
+  `Dispatcher.UIThread.Post(() => ...)` before mutating any bound property.
+  This is the Avalonia equivalent of MAUI's `MainThread.BeginInvokeOnMainThread`.
+
+- **`ChatBubble` implements `INotifyPropertyChanged`** so Avalonia automatically
+  re-renders the `TextBlock` as each streaming token appends to `Text` — no
+  external reactive package required.
+
+- **Settings stored in `{AppData}/ChatDesktop/settings.json`** (cross-platform via
+  `Environment.SpecialFolder.ApplicationData`) so they survive `dotnet run`
+  restarts without modification.
+
+- **`_agent = null` on Save** forces a fresh `AgentContext` with the new settings
+  on the next send. The new context also resets conversation history — intentional
+  after a config change.
+
+- **Avalonia packages use `Version="11.*"`** so `Avalonia`, `Avalonia.Desktop`,
+  and `Avalonia.Themes.Fluent` always resolve to the same major version at restore
+  time. Mixing major versions causes runtime crashes.
+
+## Customizing
+
+- **Non-chat UI**: replace the Chat `TabItem` content with whatever controls suit
+  your use case. The `AppBuilder` entry, `MaINSetup` bootstrap, and
+  `Dispatcher.UIThread.Post` threading pattern apply to any Avalonia window.
+- **Additional windows**: create `Window` subclasses and open them from
+  `MainWindow` with `new OtherWindow().Show()`.
+- **Tools, RAG, multi-step pipelines**: see `agents.md` (`WithTools`,
+  `WithKnowledge`, `WithSteps`) — the same `AIHub.Agent()` wiring works inside
+  any async event handler.
+- **More backends**: add `ComboBoxItem` entries in the Settings tab and a matching
+  `switch` branch in `MaINSetup.EnsureInitialized()`.

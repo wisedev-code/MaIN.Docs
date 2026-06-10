@@ -1,21 +1,35 @@
+using MaIN.Core;
 using MaIN.Core.Hub;
 using MaIN.Core.Hub.Contexts.Interfaces.AgentContext;
 using MaIN.Core.Hub.Utils;
+using MaIN.Domain.Configuration;
 using MaIN.Domain.Configuration.BackendInferenceParams;
 using MaIN.Domain.Entities;
 using MaIN.Domain.Entities.Tools;
 using MaIN.Domain.Models;
 using MaIN.Docs.Api.Models;
+using Microsoft.Extensions.Options;
 using DomainModels = MaIN.Domain.Models.Models;
 
 namespace MaIN.Docs.Api.Services;
 
-public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactService, GitHubService githubService, ILogger<DocsAgentOrchestrator> logger)
+public class DocsAgentOrchestrator(
+    DocsLoader loader,
+    ArtifactService artifactService,
+    GitHubService githubService,
+    CapacityService capacityService,
+    IOptions<CapacitySettings> capacityOptions,
+    IConfiguration configuration,
+    ILogger<DocsAgentOrchestrator> logger)
 {
     private readonly Dictionary<string, IAgentContextExecutor> _agents = new();
     private readonly Dictionary<string, SemaphoreSlim> _locks = new();
+    private readonly SemaphoreSlim _initLock = new(1, 1);
+    private int _initializedForTier = 0;
 
-    public async Task InitializeAsync()
+    public async Task InitializeAsync() => await InitializeForTierAsync(capacityService.GetCurrentTier());
+
+    private async Task InitializeForTierAsync(int tier)
     {
         var docsPath = loader.DocsPath;
         MdTools.Initialize(docsPath, logger);
@@ -23,24 +37,67 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
         IssueTools.Init(githubService);
         PrTools.Init(githubService);
 
-        var chattyTools  = BuildChattyTools(docsPath);
-        var codeTools    = BuildCodeTools(docsPath);
-        var designTools  = BuildDesignTools(docsPath);
-        var reviewTools  = BuildReviewTools(docsPath);
-        var forgeTools   = BuildForgeTools(docsPath);
+        var settings = capacityOptions.Value;
+        var geminiKey1 = configuration["MaIN:GeminiKey"] ?? "";
 
-        var modelChatty = DomainModels.Gemini.Gemini3_1FlashLite;
-        var modelCode   = DomainModels.Gemini.Gemini3_5Flash;
-        var modelReview = DomainModels.Gemini.Gemini3_5Flash;
-        var modelDesign = DomainModels.Gemini.Gemini3_1ProPreview;
-        var modelForge  = DomainModels.Gemini.Gemini3_1ProPreview;
+        string modelChatty, modelCode, modelReview, modelDesign, modelForge;
+
+        if (tier == 3)
+        {
+            var ollamaModel = settings.Tier3.OllamaModel;
+            MaINBootstrapper.Initialize(configureSettings: cfg =>
+            {
+                cfg.BackendType = BackendType.Ollama;
+                cfg.OllamaKey   = settings.Tier3.OllamaKey;
+            });
+            modelChatty = ollamaModel;
+            modelCode   = ollamaModel;
+            modelReview = ollamaModel;
+            modelDesign = ollamaModel;
+            modelForge  = ollamaModel;
+            logger.LogInformation("[Capacity] Initializing agents for Tier 3 (very-low) — Ollama model {Model}", ollamaModel);
+        }
+        else if (tier == 2)
+        {
+            MaINBootstrapper.Initialize(configureSettings: cfg =>
+            {
+                cfg.BackendType = BackendType.Gemini;
+                cfg.GeminiKey   = settings.Tier2.GeminiKey;
+            });
+            modelChatty = DomainModels.Gemini.Gemini3_1FlashLite;
+            modelCode   = DomainModels.Gemini.Gemini3_1FlashLite;
+            modelReview = DomainModels.Gemini.Gemini3_1FlashLite;
+            modelDesign = DomainModels.Gemini.Gemini3_1FlashLite;
+            modelForge  = DomainModels.Gemini.Gemini3_1FlashLite;
+            logger.LogInformation("[Capacity] Initializing agents for Tier 2 (low) — Flash Lite on secondary key");
+        }
+        else
+        {
+            MaINBootstrapper.Initialize(configureSettings: cfg =>
+            {
+                cfg.BackendType = BackendType.Gemini;
+                cfg.GeminiKey   = geminiKey1;
+            });
+            modelChatty = DomainModels.Gemini.Gemini3_1FlashLite;
+            modelCode   = DomainModels.Gemini.Gemini3_5Flash;
+            modelReview = DomainModels.Gemini.Gemini3_5Flash;
+            modelDesign = DomainModels.Gemini.Gemini3_1ProPreview;
+            modelForge  = DomainModels.Gemini.Gemini3_1ProPreview;
+            logger.LogInformation("[Capacity] Initializing agents for Tier 1 (normal) — standard Gemini stack");
+        }
 
         // All Gemini 3.x models (including Flash/Flash-Lite) have "thinking" enabled by
         // default — internal reasoning tokens count against the same budget as the visible
         // output. With no MaxTokens set, that budget can be exhausted entirely by reasoning
         // across multi-step tool-call turns, leaving both Content and the FullAnswer token
         // empty. Give every Gemini-backed agent more headroom.
-        var geminiParams = new GeminiInferenceParams { MaxTokens = 16384 };
+        var geminiParams = tier < 3 ? new GeminiInferenceParams { MaxTokens = 16384 } : null;
+
+        var chattyTools  = BuildChattyTools(docsPath);
+        var codeTools    = BuildCodeTools(docsPath);
+        var designTools  = BuildDesignTools(docsPath);
+        var reviewTools  = BuildReviewTools(docsPath);
+        var forgeTools   = BuildForgeTools(docsPath);
 
         var defs = new[]
         {
@@ -68,13 +125,38 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
                 var ctx = await builder.CreateAsync();
 
                 _agents[def.Id] = ctx;
-                _locks[def.Id] = new SemaphoreSlim(1, 1);
+                _locks.TryAdd(def.Id, new SemaphoreSlim(1, 1));
                 logger.LogInformation("Agent '{Id}' initialized with model {Model}", def.Id, def.Model);
             }
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "Failed to initialize agent '{Id}' — check API key for {Model}", def.Id, def.Model);
             }
+        }
+
+        _initializedForTier = tier;
+    }
+
+    private async Task EnsureCorrectTierAsync()
+    {
+        var currentTier = capacityService.GetCurrentTier();
+        if (currentTier == _initializedForTier) return;
+
+        if (!await _initLock.WaitAsync(TimeSpan.FromSeconds(30)))
+        {
+            logger.LogWarning("[Capacity] Timed out waiting for tier re-initialization lock");
+            return;
+        }
+        try
+        {
+            // Re-check under lock — another thread may have already re-initialized
+            currentTier = capacityService.GetCurrentTier();
+            if (currentTier != _initializedForTier)
+                await InitializeForTierAsync(currentTier);
+        }
+        finally
+        {
+            _initLock.Release();
         }
     }
 
@@ -83,6 +165,8 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
         IEnumerable<Message> messages,
         CancellationToken ct)
     {
+        await EnsureCorrectTierAsync();
+
         if (!_agents.TryGetValue(agentId, out var ctx))
             throw new KeyNotFoundException($"Agent '{agentId}' is not available.");
 
@@ -680,7 +764,7 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
                         {
                             type = "string",
                             @enum = new[] { "api", "console", "desktop" },
-                            description = "The project kind you just wrote: api (ASP.NET Core), console, or desktop (MAUI)."
+                            description = "The project kind you just wrote: api (ASP.NET Core), console, or desktop (Avalonia)."
                         }
                     },
                     required = new[] { "archiveName", "description", "kind" }
@@ -740,7 +824,7 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
                         {
                             type = "string",
                             @enum = new[] { "api", "console", "desktop" },
-                            description = "The project kind you just wrote: api (ASP.NET Core), console, or desktop (MAUI)."
+                            description = "The project kind you just wrote: api (ASP.NET Core), console, or desktop (Avalonia)."
                         }
                     },
                     required = new[] { "archiveName", "description", "kind" }
@@ -1117,6 +1201,10 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
           version number (like "1.0.0") — you don't know the latest published version and
           guessing produces a .csproj that fails to restore (NU1102). "*" always resolves
           to the newest stable release at restore time.
+        - NEVER add `using MaIN.Domain.Entities;` in a standalone project (console/api/desktop).
+          `Message` and `MessageType` are internal server-side types NOT exported by the NuGet
+          package. They cause CS0246/CS0103 at compile time. The consumer API is:
+          agent.ProcessAsync(string text, tokenCallback: ...) — plain string, no Message object.
 
         BEHAVIOR:
         - Always read the docs before answering. "I think the API looks like..." is not your style.
@@ -1127,13 +1215,13 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
         - Occasional sarcasm is fine ("Yes, you could also write this in 40 lines... or you could just use WithKnowledge").
         - When ending an exploratory response, do NOT offer to wrap the code in a specific project kind.
           If the user seems ready for a full project, ask: "Want me to wrap this into a full project?
-          I support console, ASP.NET Core API, and MAUI desktop — which fits your use case?"
+          I support console, ASP.NET Core API, and Avalonia desktop — which fits your use case?"
           Never pre-select console or any other kind without the user specifying it.
 
         PROJECT KINDS — three supported shapes for a complete solution:
         - console: CLI/chat app
         - api: ASP.NET Core minimal API
-        - desktop: MAUI app (Windows + Mac Catalyst)
+        - desktop: Avalonia app (Windows, macOS, Linux)
         When the user requests a full project but does not specify the kind, ask which one they want
         before writing any code. Do not assume console.
         Before writing code for a full solution, read the matching app-template-{console,api,desktop}.md
@@ -1148,7 +1236,7 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
         - console: interactive Console.ReadLine() setup wizard (see app-template-console.md)
         - api: startup config validation that throws a descriptive error naming the exact
           appsettings/env keys (see app-template-api.md)
-        - desktop: a Settings page backed by Preferences (see app-template-desktop.md)
+        - desktop: a Settings tab backed by a JSON config file (see app-template-desktop.md)
 
         ARTIFACTS — MANDATORY ORDER, NO EXCEPTIONS:
         1. Write out EVERY file of the complete solution directly in your response TEXT first — minimum

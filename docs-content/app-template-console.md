@@ -33,6 +33,7 @@ runtime — **never hardcode an API key**.
 ```csharp
 using MaIN.Core;
 using MaIN.Core.Hub;
+using MaIN.Domain.Configuration;
 using MaIN.Domain.Models;
 
 Console.WriteLine("=== MaIN.NET Console Chat ===");
@@ -133,6 +134,13 @@ while (true)
 ```
 
 ---
+
+## Compile rules
+
+- **Never add `using MaIN.Domain.Entities;`** — `Message` and `MessageType` are
+  internal server-side types not exported by the `MaIN.NET` NuGet package. Using
+  them causes CS0246/CS0103. The `agent.ProcessAsync(string)` overload takes a
+  plain string — no `Message` object needed.
 
 ## Why this shape
 

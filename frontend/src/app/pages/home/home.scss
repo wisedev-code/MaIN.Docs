@@ -519,7 +519,26 @@
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  align-items: center;
 }
+
+.cap-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 10.5px;
+  font-family: 'JetBrains Mono', monospace;
+  opacity: 0.55;
+  transition: opacity 0.2s ease;
+  border: 1px solid var(--border);
+  &:hover { opacity: 1; }
+}
+.cap-symbol { font-size: 11px; }
+.cap-normal  { color: var(--accent); border-color: var(--border-accent, var(--border)); }
+.cap-low     { color: #f59e0b; border-color: rgba(245,158,11,0.3); }
+.cap-verylow { color: var(--text-subtle); }
 
 .agent-pill-wrap {
   position: relative;

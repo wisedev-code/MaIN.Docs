@@ -41,17 +41,7 @@ if [ -z "$PROJECT_FILE" ]; then
 fi
 PROJECT_DIR="$(dirname "$PROJECT_FILE")"
 
-RUN_ARGS=""
-if grep -q 'Microsoft.NET.Sdk.Maui' "$PROJECT_FILE" 2>/dev/null; then
-  echo -e "${YELLOW}==> MAUI project detected — checking workload...${RESET}"
-  if ! dotnet workload list 2>/dev/null | grep -q 'maui'; then
-    echo -e "${YELLOW}==> Installing MAUI workload (one-time setup)...${RESET}"
-    dotnet workload install maui-maccatalyst
-  fi
-  RUN_ARGS="-f net9.0-maccatalyst"
-fi
-
 echo -e "${GREEN}==> Running 'dotnet run' in $PROJECT_DIR${RESET}"
 echo ""
 cd "$PROJECT_DIR"
-dotnet run $RUN_ARGS
+dotnet run

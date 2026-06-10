@@ -10,6 +10,9 @@ services:
       - Logging__LogLevel__Default=Information
       - Logging__LogLevel__Microsoft.AspNetCore=Warning
       - MaIN__GeminiKey=${GEMINI_KEY}
+      - Capacity__Tier2__GeminiKey=${CAPACITY_TIER2_GEMINI_KEY}
+      - Capacity__Tier3__OllamaKey=${CAPACITY_TIER3_OLLAMA_KEY}
+      - Capacity__Tier3__OllamaModel=${CAPACITY_TIER3_OLLAMA_MODEL:-gemma4:31b-cloud}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - AWS_REGION=${AWS_REGION}

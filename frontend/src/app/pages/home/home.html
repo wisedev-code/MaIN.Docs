@@ -464,6 +464,10 @@
               <span class="agent-name">{{ agent.name }}</span>
             </button>
           }
+          <div class="cap-indicator {{ capacityMeta().cls }}" [title]="'Capacity: ' + capacity()">
+            <span class="cap-symbol">{{ capacityMeta().emoji }}</span>
+            <span class="cap-text">{{ capacityMeta().label }}</span>
+          </div>
         </div>
 
         <div class="agent-info-panel" [class.open]="hoveredAgent() !== null">

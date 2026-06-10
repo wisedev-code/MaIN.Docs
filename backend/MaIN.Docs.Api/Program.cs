@@ -4,6 +4,7 @@ using MaIN.Core;
 using MaIN.Core.Hub;
 using MaIN.Docs.Api.Endpoints;
 using MaIN.Docs.Api.Middleware;
+using MaIN.Docs.Api.Models;
 using MaIN.Docs.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -32,6 +33,9 @@ builder.Services.AddCors(options =>
             .AllowAnyHeader()
             .AllowAnyMethod());
 });
+
+builder.Services.Configure<CapacitySettings>(builder.Configuration.GetSection("Capacity"));
+builder.Services.AddSingleton<CapacityService>();
 
 builder.Services.AddSingleton<DocsLoader>();
 builder.Services.AddSingleton<ArtifactService>();
