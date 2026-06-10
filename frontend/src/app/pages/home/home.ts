@@ -86,7 +86,7 @@ export class Home implements OnDestroy {
 
   recentConversations = signal<SavedConversation[]>([]);
 
-  openRunPanelIndex = signal<number | null>(null);
+  runModalArtifactUrl = signal<string | null>(null);
   runPanelOs = signal<'unix' | 'windows'>(this.detectOs());
 
   hasMessages = computed(() => this.messages().length > 0);
@@ -183,7 +183,7 @@ export class Home implements OnDestroy {
       } else {
         const response = await this.chatService.sendMessage(this.selectedAgent().id, apiText, history);
         const msgIndex = this.messages().length - 1;
-        await this.revealWordByWord(response.content, msgIndex, response.toolsUsed, response.estimatedTokens, response.artifactUrl, response.artifactProposed, response.issueProposed, response.issueUrl, response.planProposed, response.reviewProposed, response.codeChangeProposed, response.prProposed, response.prUrl, response.reviewPosted);
+        await this.revealWordByWord(response.content, msgIndex, response.toolsUsed, response.estimatedTokens, response.artifactUrl, response.artifactProposed, response.issueProposed, response.issueUrl, response.planProposed, response.reviewProposed, response.codeChangeProposed, response.prProposed, response.prUrl, response.reviewPosted, response.docsRead);
 
         if (response.artifactProposed && !response.artifactUrl) {
           this.artifactProposal.set(response.artifactProposed);
@@ -244,7 +244,8 @@ export class Home implements OnDestroy {
     codeChangeProposed?: CodeChangeProposal,
     prProposed?: PrProposal,
     prUrl?: string,
-    reviewPosted?: ReviewPosted
+    reviewPosted?: ReviewPosted,
+    docsRead?: string[]
   ) {
     const CHUNK = 4;
     const DELAY = 32;
@@ -288,6 +289,7 @@ export class Home implements OnDestroy {
         prProposed,
         prUrl,
         reviewPosted,
+        docsRead,
       };
       return updated;
     });
@@ -648,8 +650,12 @@ export class Home implements OnDestroy {
     return /win/i.test(ua) ? 'windows' : 'unix';
   }
 
-  toggleRunPanel(index: number) {
-    this.openRunPanelIndex.update(cur => cur === index ? null : index);
+  openRunModal(artifactUrl: string) {
+    this.runModalArtifactUrl.update(cur => cur === artifactUrl ? null : artifactUrl);
+  }
+
+  closeRunModal() {
+    this.runModalArtifactUrl.set(null);
   }
 
   setRunPanelOs(os: 'unix' | 'windows') {

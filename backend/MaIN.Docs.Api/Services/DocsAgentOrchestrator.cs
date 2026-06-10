@@ -102,6 +102,9 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
         PrProposal? prProposed = null;
         string? prUrl = null;
 
+        var docsRead = new List<string>();
+        MdTools.SetReadCapture(path => docsRead.Add(path));
+
         if (agentId == "code")
         {
             ArtifactTools.SetCapture(url => artifactUrl = url);
@@ -140,6 +143,13 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
 
         try
         {
+            // The agent's internal chat is shared across all conversations/users for this
+            // agentId, and ProcessAsync(messages) APPENDS rather than replaces. Since
+            // `messages` already carries the full conversation history + new message from
+            // the frontend, restart the chat first so this turn's internal chat is exactly
+            // `messages` — no duplication of prior turns and no bleed from other conversations.
+            await ctx.RestartChat();
+
             var completedInvocations = new List<ToolInvocation>();
             Func<ToolInvocation, Task> callback = inv =>
             {
@@ -208,7 +218,8 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
 
             return new AgentResult(content ?? string.Empty, toolsUsed, estimatedTokens,
                 artifactUrl, artifactProposed, issueProposed, issueUrl, planProposed,
-                reviewProposed, codeChangeProposed, prProposed, prUrl, reviewPosted);
+                reviewProposed, codeChangeProposed, prProposed, prUrl, reviewPosted,
+                DocsRead: docsRead.Distinct().ToList());
         }
         finally
         {
@@ -222,6 +233,7 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
             PrTools.SetCodeChangeCapture(null);
             PrTools.SetPrCapture(null);
             PrTools.SetPrUrlCapture(null);
+            MdTools.SetReadCapture(null);
             sem.Release();
         }
     }
@@ -653,7 +665,9 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
                 "Signals the UI to offer a downloadable ZIP artifact. " +
                 "Call when your response contains a complete, compilable solution — not for partial snippets or conceptual answers. " +
                 "Skip it when the user is just exploring or when you'd need more details to make the code runnable. " +
-                "Call at most once per response.",
+                "Call at most once per response. " +
+                "REQUIRES that the SAME response already contains the full code as fenced code blocks " +
+                "(File: <path> + ```lang block for every file) — this tool offers a download, it does not replace showing the code.",
                 new
                 {
                     type = "object",
@@ -669,7 +683,7 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
                 "generate_artifact",
                 "Packages a complete .NET solution into a ZIP archive and uploads it to cloud storage. " +
                 "ONLY call when the user explicitly confirms they want to download. " +
-                "Include all files needed to run: .csproj with correct NuGet references, Program.cs, and any supporting files. " +
+                "Include all files needed to run: .csproj with correct NuGet references (use Version=\"*\" for MaIN.NET/MaIN.Skills.* — never a guessed version number), Program.cs, and any supporting files. " +
                 "Do NOT call proactively.",
                 new
                 {
@@ -1084,6 +1098,11 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
         - ImplicitUsings=enable, Nullable=enable
         - Bad: class Program { static async Task Main() { ... } }
         - Good: MaINBootstrapper.Initialize(); var result = await AIHub.Chat()...
+        - NuGet PackageReference for MaIN.NET (and MaIN.Skills.*): ALWAYS use Version="*",
+          e.g. <PackageReference Include="MaIN.NET" Version="*" />. NEVER write a specific
+          version number (like "1.0.0") — you don't know the latest published version and
+          guessing produces a .csproj that fails to restore (NU1102). "*" always resolves
+          to the newest stable release at restore time.
 
         BEHAVIOR:
         - Always read the docs before answering. "I think the API looks like..." is not your style.
@@ -1093,14 +1112,16 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
           · Ambiguous: ask ONE sharp question about scope or use case — don't assume they want a full project.
         - Occasional sarcasm is fine ("Yes, you could also write this in 40 lines... or you could just use WithKnowledge").
 
-        ARTIFACTS:
-        - ALWAYS write out the complete code solution in your response first — .csproj and Program.cs in full,
-          fenced code blocks, nothing omitted. The user must be able to read and run the code from your message alone.
-          Proposing an artifact is NOT a substitute for showing the code. If your response has no code blocks, you've failed.
-        - propose_artifact_generation: call AFTER you've written the full solution, as an optional convenience download.
-          Only call it when the solution is complete and runnable (has .csproj + Program.cs + runs with 'dotnet run').
-        - generate_artifact: ONLY when the user explicitly confirms they want the download. Package the full project.
-        - After generate_artifact succeeds, do NOT include the download URL in your text — the UI shows a download card. Just confirm it's ready.
+        ARTIFACTS — MANDATORY ORDER, NO EXCEPTIONS:
+        1. Write out EVERY file of the complete solution directly in your response TEXT first — minimum
+           .csproj + Program.cs, each as its own fenced code block immediately preceded by a line
+           "File: <path>". Nothing omitted, nothing summarized. THIS IS THE ONLY WAY THE USER SEES YOUR CODE.
+        2. ONLY THEN, in that same response, may you call propose_artifact_generation as an optional
+           convenience download. Calling it without first writing the code blocks in step 1 is a hard
+           failure — a tool call is not a substitute for showing the code.
+        3. Only propose when the solution is complete and runnable (has .csproj + Program.cs + runs with 'dotnet run').
+        4. generate_artifact: ONLY when the user explicitly confirms they want the download. Package the full project.
+        5. After generate_artifact succeeds, do NOT include the download URL in your text — the UI shows a download card. Just confirm it's ready.
 
         RESPONSE RULE: ALWAYS write text in your response. When proposing an artifact, include a brief explanation of what you built. When generating an artifact, confirm it's ready in 1 sentence. Never return an empty text response.
         """;

@@ -116,7 +116,7 @@ public static class ChatEndpoints
         {
             var messages = BuildMessages(request);
             var result = await orchestrator.ProcessAsync(request.AgentId, messages, ct);
-            return Results.Ok(new ChatResponse(result.Content, result.ToolsUsed, result.EstimatedTokens, result.ArtifactUrl, result.ArtifactProposed, result.IssueProposed, result.IssueUrl, result.PlanProposed, result.ReviewProposed, result.CodeChangeProposed, result.PrProposed, result.PrUrl, result.ReviewPosted));
+            return Results.Ok(new ChatResponse(result.Content, result.ToolsUsed, result.EstimatedTokens, result.ArtifactUrl, result.ArtifactProposed, result.IssueProposed, result.IssueUrl, result.PlanProposed, result.ReviewProposed, result.CodeChangeProposed, result.PrProposed, result.PrUrl, result.ReviewPosted, result.DocsRead));
         }
         catch (TimeoutException ex)
         {
@@ -141,6 +141,21 @@ public static class ChatEndpoints
             Type = MessageType.NotSet,
             Time = DateTime.UtcNow
         };
+
+        if (request.DocsAlreadyRead is { Count: > 0 } docsAlreadyRead)
+        {
+            var memoryMessage = new Message
+            {
+                Role = "User",
+                Content = $"[Conversation memory] You already read these doc files earlier in this " +
+                          $"conversation: {string.Join(", ", docsAlreadyRead)}. Do not call list_docs, " +
+                          "search_md_files, or read_md_file for these files again unless you need different " +
+                          "sections, or the new request needs a file not in this list.",
+                Type = MessageType.NotSet,
+                Time = DateTime.UtcNow
+            };
+            return history.Append(memoryMessage).Append(userMessage);
+        }
 
         return history.Append(userMessage);
     }

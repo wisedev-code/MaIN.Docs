@@ -85,6 +85,7 @@ export interface ChatMessage {
   attachments?: Attachment[];
   agentId?: string;
   branchName?: string;
+  docsRead?: string[];
 }
 
 export interface AgentCapability {

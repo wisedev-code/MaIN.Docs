@@ -27,6 +27,7 @@ interface ChatApiResponse {
   prProposed?: PrProposal;
   prUrl?: string;
   reviewPosted?: ReviewPosted;
+  docsRead?: string[];
 }
 
 interface EnsembleCodeApiResponse {
@@ -63,6 +64,7 @@ export interface AgentResponse {
   prProposed?: PrProposal;
   prUrl?: string;
   reviewPosted?: ReviewPosted;
+  docsRead?: string[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -78,10 +80,13 @@ export class ChatService {
   async sendMessage(agentId: string, message: string, history: ChatMessage[]): Promise<AgentResponse> {
     this.abortController = new AbortController();
 
+    const docsAlreadyRead = [...new Set(history.flatMap(m => m.docsRead ?? []))];
+
     const body = {
       agentId,
       message,
       history: history.map(m => ({ role: m.role, content: m.content })),
+      ...(docsAlreadyRead.length > 0 ? { docsAlreadyRead } : {}),
     };
 
     const headers = new HttpHeaders({
@@ -94,7 +99,7 @@ export class ChatService {
     );
 
     this.abortController = null;
-    return { content: response.text, toolsUsed: response.toolsUsed, estimatedTokens: response.estimatedTokens, artifactUrl: response.artifactUrl, artifactProposed: response.artifactProposed, issueProposed: response.issueProposed, issueUrl: response.issueUrl, planProposed: response.planProposed, reviewProposed: response.reviewProposed, codeChangeProposed: response.codeChangeProposed, prProposed: response.prProposed, prUrl: response.prUrl, reviewPosted: response.reviewPosted };
+    return { content: response.text, toolsUsed: response.toolsUsed, estimatedTokens: response.estimatedTokens, artifactUrl: response.artifactUrl, artifactProposed: response.artifactProposed, issueProposed: response.issueProposed, issueUrl: response.issueUrl, planProposed: response.planProposed, reviewProposed: response.reviewProposed, codeChangeProposed: response.codeChangeProposed, prProposed: response.prProposed, prUrl: response.prUrl, reviewPosted: response.reviewPosted, docsRead: response.docsRead };
   }
 
   private get authHeaders(): HttpHeaders {

@@ -10,12 +10,21 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
+Write-Host ""
+Write-Host "  ╔═══════════════════════════════╗" -ForegroundColor Cyan
+Write-Host "  ║      " -NoNewline -ForegroundColor Cyan
+Write-Host "MaIN " -NoNewline -ForegroundColor Magenta
+Write-Host "Package Runner" -NoNewline -ForegroundColor Cyan
+Write-Host "      ║" -ForegroundColor Cyan
+Write-Host "  ╚═══════════════════════════════╝" -ForegroundColor Cyan
+Write-Host ""
+
 $dir = [System.IO.Path]::GetFileNameWithoutExtension($ArchiveName)
 
-Write-Host "==> Downloading $ArchiveName"
+Write-Host "==> Downloading $ArchiveName" -ForegroundColor Yellow
 Invoke-WebRequest -Uri $ArtifactUrl -OutFile $ArchiveName
 
-Write-Host "==> Extracting to .\$dir"
+Write-Host "==> Extracting to .\$dir" -ForegroundColor Yellow
 if (Test-Path $dir) { Remove-Item -Recurse -Force $dir }
 Expand-Archive -Path $ArchiveName -DestinationPath $dir -Force
 
@@ -26,6 +35,7 @@ if (-not $projectFile) {
 }
 $projectDir = $projectFile.DirectoryName
 
-Write-Host "==> Running 'dotnet run' in $projectDir"
+Write-Host "==> Running 'dotnet run' in $projectDir" -ForegroundColor Green
+Write-Host ""
 Set-Location $projectDir
 dotnet run

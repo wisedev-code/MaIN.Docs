@@ -1,7 +1,7 @@
 namespace MaIN.Docs.Api.Models;
 
 public record HistoryMessage(string Role, string Content);
-public record ChatRequest(string AgentId, string Message, List<HistoryMessage> History);
+public record ChatRequest(string AgentId, string Message, List<HistoryMessage> History, List<string>? DocsAlreadyRead = null);
 public record ToolUsage(string Name, int Calls);
 public record ArtifactProposal(string ArchiveName, string Description);
 public record IssueProposal(string Title, string Body);
@@ -17,14 +17,16 @@ public record AgentResult(string Content, List<ToolUsage> ToolsUsed, int Estimat
     PlanProposal? PlanProposed = null,
     PrReviewProposal? ReviewProposed = null, CodeChangeProposal? CodeChangeProposed = null,
     PrProposal? PrProposed = null, string? PrUrl = null,
-    ReviewPosted? ReviewPosted = null);
+    ReviewPosted? ReviewPosted = null,
+    List<string>? DocsRead = null);
 public record ChatResponse(string Text, List<ToolUsage> ToolsUsed, int EstimatedTokens,
     string? ArtifactUrl = null, ArtifactProposal? ArtifactProposed = null,
     IssueProposal? IssueProposed = null, string? IssueUrl = null,
     PlanProposal? PlanProposed = null,
     PrReviewProposal? ReviewProposed = null, CodeChangeProposal? CodeChangeProposed = null,
     PrProposal? PrProposed = null, string? PrUrl = null,
-    ReviewPosted? ReviewPosted = null);
+    ReviewPosted? ReviewPosted = null,
+    List<string>? DocsRead = null);
 public record EnsembleDesignRequest(string Message, List<HistoryMessage> History);
 public record EnsembleCodeRequest(string OriginalMessage, string DesignContent);
 public record EnsembleReviewRequest(string OriginalMessage, string DesignContent, string CodeContent, string BranchName);

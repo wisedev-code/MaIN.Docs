@@ -3,14 +3,26 @@
 # Usage: curl -fsSL <host>/scripts/run-artifact.sh | bash -s -- "<artifactUrl>" "<archiveName>"
 set -euo pipefail
 
+CYAN='\033[1;36m'
+MAGENTA='\033[1;35m'
+YELLOW='\033[1;33m'
+GREEN='\033[1;32m'
+RESET='\033[0m'
+
+echo ""
+echo -e "${CYAN}  ╔═══════════════════════════════╗${RESET}"
+echo -e "${CYAN}  ║      ${MAGENTA}MaIN ${CYAN}Package Runner      ║${RESET}"
+echo -e "${CYAN}  ╚═══════════════════════════════╝${RESET}"
+echo ""
+
 URL="${1:?Missing artifact URL}"
 NAME="${2:-artifact.zip}"
 DIR="${NAME%.zip}"
 
-echo "==> Downloading $NAME"
+echo -e "${YELLOW}==> Downloading $NAME${RESET}"
 curl -fsSL "$URL" -o "$NAME"
 
-echo "==> Extracting to ./$DIR"
+echo -e "${YELLOW}==> Extracting to ./$DIR${RESET}"
 rm -rf "$DIR"
 mkdir -p "$DIR"
 if command -v unzip >/dev/null 2>&1; then
@@ -29,6 +41,7 @@ if [ -z "$PROJECT_FILE" ]; then
 fi
 PROJECT_DIR="$(dirname "$PROJECT_FILE")"
 
-echo "==> Running 'dotnet run' in $PROJECT_DIR"
+echo -e "${GREEN}==> Running 'dotnet run' in $PROJECT_DIR${RESET}"
+echo ""
 cd "$PROJECT_DIR"
 dotnet run
