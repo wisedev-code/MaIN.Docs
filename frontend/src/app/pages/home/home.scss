@@ -1066,6 +1066,120 @@
   transition: all 0.2s ease;
 }
 
+.arc-run-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-accent);
+  background: transparent;
+  color: var(--accent-dim);
+  font-size: 11.5px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+    box-shadow: 0 0 10px var(--accent-glow-strong);
+  }
+
+  svg { flex-shrink: 0; }
+}
+
+// ── Start-in-terminal command panel ─────────────────────
+.arc-run-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-accent);
+  background: var(--code-bg);
+  animation: fadeReveal 0.25s ease both;
+  max-width: 820px;
+}
+
+.arc-run-tabs {
+  display: flex;
+  gap: 6px;
+}
+
+.arc-run-tab {
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover { color: var(--text); border-color: var(--border-accent); }
+
+  &.active {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-glow);
+  }
+}
+
+.arc-run-cmd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated, rgba(255, 255, 255, 0.03));
+  overflow-x: auto;
+
+  code {
+    flex: 1;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+    white-space: pre;
+  }
+
+  .copy-btn {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    padding: 4px;
+    color: var(--text-muted);
+    opacity: 0.6;
+    transition: opacity 0.15s, color 0.15s;
+
+    svg { pointer-events: none; display: block; }
+
+    &:hover { opacity: 1; color: var(--accent); }
+    &.copied { opacity: 1; color: var(--accent); font-size: 10px; }
+  }
+}
+
+.arc-run-hint {
+  font-size: 11px;
+  color: var(--text-subtle);
+  line-height: 1.5;
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--accent-dim);
+  }
+}
+
 // ── GitHub issue prompt toast ──────────────────────────
 .issue-prompt {
   display: flex;

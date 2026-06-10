@@ -86,6 +86,9 @@ export class Home implements OnDestroy {
 
   recentConversations = signal<SavedConversation[]>([]);
 
+  openRunPanelIndex = signal<number | null>(null);
+  runPanelOs = signal<'unix' | 'windows'>(this.detectOs());
+
   hasMessages = computed(() => this.messages().length > 0);
 
   currentEnsembleStageLabel = computed(() => {
@@ -638,6 +641,41 @@ export class Home implements OnDestroy {
     } catch {
       return 'artifact.zip';
     }
+  }
+
+  private detectOs(): 'unix' | 'windows' {
+    const ua = navigator.userAgent || (navigator as any).platform || '';
+    return /win/i.test(ua) ? 'windows' : 'unix';
+  }
+
+  toggleRunPanel(index: number) {
+    this.openRunPanelIndex.update(cur => cur === index ? null : index);
+  }
+
+  setRunPanelOs(os: 'unix' | 'windows') {
+    this.runPanelOs.set(os);
+  }
+
+  runCommand(artifactUrl: string, os: 'unix' | 'windows'): string {
+    const archiveName = this.extractArchiveName(artifactUrl);
+    const origin = window.location.origin;
+    if (os === 'windows') {
+      return `& ([scriptblock]::Create((irm ${origin}/scripts/run-artifact.ps1))) -ArtifactUrl "${artifactUrl}" -ArchiveName "${archiveName}"`;
+    }
+    return `curl -fsSL ${origin}/scripts/run-artifact.sh | bash -s -- "${artifactUrl}" "${archiveName}"`;
+  }
+
+  copyRunCommand(text: string, event: Event) {
+    const btn = (event.currentTarget as HTMLButtonElement);
+    navigator.clipboard.writeText(text).then(() => {
+      const original = btn.innerHTML;
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.innerHTML = original;
+        btn.classList.remove('copied');
+      }, 2000);
+    }).catch(() => {});
   }
 
   toolTokenEstimate(toolsUsed: ToolUsage[]): number {

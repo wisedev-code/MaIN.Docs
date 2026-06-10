@@ -164,7 +164,30 @@
                     </svg>
                     Download
                   </div>
+                  <button type="button" class="arc-run-btn" (click)="$event.preventDefault(); $event.stopPropagation(); toggleRunPanel($index)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="4 17 10 11 4 5"/>
+                      <line x1="12" y1="19" x2="20" y2="19"/>
+                    </svg>
+                    Start in terminal
+                  </button>
                 </a>
+              }
+
+              @if (msg.artifactUrl && openRunPanelIndex() === $index) {
+                <div class="arc-run-panel">
+                  <div class="arc-run-tabs">
+                    <button type="button" class="arc-run-tab" [class.active]="runPanelOs() === 'unix'" (click)="setRunPanelOs('unix')">macOS / Linux</button>
+                    <button type="button" class="arc-run-tab" [class.active]="runPanelOs() === 'windows'" (click)="setRunPanelOs('windows')">Windows (PowerShell)</button>
+                  </div>
+                  <div class="arc-run-cmd">
+                    <code>{{ runCommand(msg.artifactUrl, runPanelOs()) }}</code>
+                    <button type="button" class="copy-btn" title="Copy command" (click)="copyRunCommand(runCommand(msg.artifactUrl, runPanelOs()), $event)">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    </button>
+                  </div>
+                  <span class="arc-run-hint">Downloads the artifact, extracts it, and runs <code>dotnet run</code>.</span>
+                </div>
               }
 
               @if (msg.issueUrl) {
