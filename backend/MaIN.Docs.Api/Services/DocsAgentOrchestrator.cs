@@ -1,6 +1,7 @@
 using MaIN.Core.Hub;
 using MaIN.Core.Hub.Contexts.Interfaces.AgentContext;
 using MaIN.Core.Hub.Utils;
+using MaIN.Domain.Configuration.BackendInferenceParams;
 using MaIN.Domain.Entities;
 using MaIN.Domain.Entities.Tools;
 using MaIN.Domain.Models;
@@ -30,30 +31,41 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
 
         var modelChatty = DomainModels.Gemini.Gemini3_1FlashLite;
         var modelCode   = DomainModels.Gemini.Gemini3_5Flash;
-        var modelReview = DomainModels.Gemini.Gemini3_1FlashLite;
-        var modelDesign = DomainModels.Gemini.Gemini2_5Pro;
-        var modelForge  = DomainModels.Gemini.Gemini2_5Pro;
+        var modelReview = DomainModels.Gemini.Gemini3_5Flash;
+        var modelDesign = DomainModels.Gemini.Gemini3_1ProPreview;
+        var modelForge  = DomainModels.Gemini.Gemini3_1ProPreview;
+
+        // All Gemini 3.x models (including Flash/Flash-Lite) have "thinking" enabled by
+        // default — internal reasoning tokens count against the same budget as the visible
+        // output. With no MaxTokens set, that budget can be exhausted entirely by reasoning
+        // across multi-step tool-call turns, leaving both Content and the FullAnswer token
+        // empty. Give every Gemini-backed agent more headroom.
+        var geminiParams = new GeminiInferenceParams { MaxTokens = 16384 };
 
         var defs = new[]
         {
-            new AgentDef("chatty", "Chatty", modelChatty, ChattySystemPrompt, chattyTools),
-            new AgentDef("code",   "Code",   modelCode,   CodeSystemPrompt,   codeTools),
-            new AgentDef("design", "Design", modelDesign, DesignSystemPrompt, designTools),
-            new AgentDef("review", "Review", modelReview, ReviewSystemPrompt, reviewTools),
-            new AgentDef("forge",  "Forge",  modelForge,  ForgeSystemPrompt,  forgeTools),
+            new AgentDef("chatty", "Chatty", modelChatty, ChattySystemPrompt, chattyTools, geminiParams),
+            new AgentDef("code",   "Code",   modelCode,   CodeSystemPrompt,   codeTools,   geminiParams),
+            new AgentDef("design", "Design", modelDesign, DesignSystemPrompt, designTools, geminiParams),
+            new AgentDef("review", "Review", modelReview, ReviewSystemPrompt, reviewTools, geminiParams),
+            new AgentDef("forge",  "Forge",  modelForge,  ForgeSystemPrompt,  forgeTools,  geminiParams),
         };
 
         foreach (var def in defs)
         {
             try
             {
-                var ctx = await AIHub.Agent()
+                var builder = AIHub.Agent()
                     .WithModel(def.Model)
                     .WithId($"docs-{def.Id}")
                     .WithName(def.Name)
                     .WithInitialPrompt(def.SystemPrompt)
-                    .WithTools(def.Tools)
-                    .CreateAsync();
+                    .WithTools(def.Tools);
+
+                if (def.InferenceParams is not null)
+                    builder = builder.WithInferenceParams(def.InferenceParams);
+
+                var ctx = await builder.CreateAsync();
 
                 _agents[def.Id] = ctx;
                 _locks[def.Id] = new SemaphoreSlim(1, 1);
@@ -89,7 +101,6 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
         CodeChangeProposal? codeChangeProposed = null;
         PrProposal? prProposed = null;
         string? prUrl = null;
-        List<PresentedCodeFile>? codePresented = null;
 
         if (agentId == "code")
         {
@@ -125,15 +136,12 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
             PrTools.SetCodeChangeCapture(c => codeChangeProposed = c);
             PrTools.SetPrCapture(p => prProposed = p);
             PrTools.SetPrUrlCapture(url => prUrl = url);
-            CodePresentTools.SetCapture(files => codePresented = files
-                .Select(f => new PresentedCodeFile(f.Path, f.Content, f.Language))
-                .ToList());
         }
 
         try
         {
             var completedInvocations = new List<ToolInvocation>();
-            var result = await ctx.ProcessAsync(messages, toolCallback: inv =>
+            Func<ToolInvocation, Task> callback = inv =>
             {
                 if (!inv.Done)
                     logger.LogInformation("[{Agent}] Tool CALL  → {Tool} args={Args}", agentId, inv.ToolName, inv.Arguments);
@@ -142,7 +150,45 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
 
                 if (inv.Done) completedInvocations.Add(inv);
                 return Task.CompletedTask;
-            });
+            };
+
+            var result = await ctx.ProcessAsync(messages, toolCallback: callback);
+
+            // When the model's final turn (after tool calls) emits no new text, Content ends up
+            // empty even though earlier turns produced commentary — that text only survives in
+            // the FullAnswer token. Fall back to it so the user sees what the model said.
+            var content = result.Message.Content;
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                var fullAnswer = result.Message.Tokens
+                    .LastOrDefault(t => t.Type == TokenType.FullAnswer)?.Text;
+                if (!string.IsNullOrWhiteSpace(fullAnswer))
+                    content = fullAnswer;
+            }
+
+            // Models occasionally stall after tool calls and return nothing at all — no text,
+            // no FullAnswer, no actionable output (no plan/code/proposal). Retry once.
+            var hasOutput = !string.IsNullOrWhiteSpace(content)
+                || artifactUrl is not null || artifactProposed is not null
+                || issueProposed is not null || planProposed is not null
+                || reviewProposed is not null || codeChangeProposed is not null
+                || prProposed is not null || prUrl is not null
+                || reviewPosted is not null;
+
+            if (!hasOutput)
+            {
+                logger.LogWarning("[{Agent}] Empty response with no actionable output — retrying once", agentId);
+                completedInvocations.Clear();
+                result = await ctx.ProcessAsync(messages, toolCallback: callback);
+                content = result.Message.Content;
+                if (string.IsNullOrWhiteSpace(content))
+                {
+                    var fullAnswer = result.Message.Tokens
+                        .LastOrDefault(t => t.Type == TokenType.FullAnswer)?.Text;
+                    if (!string.IsNullOrWhiteSpace(fullAnswer))
+                        content = fullAnswer;
+                }
+            }
 
             var tokenSummary = result.Message.Tokens
                 .GroupBy(t => t.Type)
@@ -158,11 +204,11 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
                 .Select(g => new ToolUsage(g.Key, g.Count()))
                 .ToList();
 
-            var estimatedTokens = (int)Math.Round((result.Message.Content?.Length ?? 0) / 4.0);
+            var estimatedTokens = (int)Math.Round((content?.Length ?? 0) / 4.0);
 
-            return new AgentResult(result.Message.Content ?? string.Empty, toolsUsed, estimatedTokens,
+            return new AgentResult(content ?? string.Empty, toolsUsed, estimatedTokens,
                 artifactUrl, artifactProposed, issueProposed, issueUrl, planProposed,
-                reviewProposed, codeChangeProposed, prProposed, prUrl, codePresented, reviewPosted);
+                reviewProposed, codeChangeProposed, prProposed, prUrl, reviewPosted);
         }
         finally
         {
@@ -176,7 +222,6 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
             PrTools.SetCodeChangeCapture(null);
             PrTools.SetPrCapture(null);
             PrTools.SetPrUrlCapture(null);
-            CodePresentTools.SetCapture(null);
             sem.Release();
         }
     }
@@ -250,7 +295,7 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
         }
     ];
 
-    private record AgentDef(string Id, string Name, string Model, string SystemPrompt, ToolsConfiguration Tools);
+    private record AgentDef(string Id, string Name, string Model, string SystemPrompt, ToolsConfiguration Tools, IBackendInferenceParams? InferenceParams = null);
 
     private static ToolsConfigurationBuilder SharedDocsTools() =>
         new ToolsConfigurationBuilder()
@@ -652,43 +697,12 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
                     required = new[] { "archiveName", "files" }
                 },
                 ArtifactTools.Generate)
-            .WithMaxIterations(7)
+            .WithMaxIterations(10)
             .WithToolChoice("auto")
             .Build();
 
     private static ToolsConfiguration BuildForgeTools(string docsPath) =>
         SharedDocsTools()
-            // ── Code presentation (Code mode — standalone examples) ──
-            .AddTool<CodePresentTools.PresentArgs>(
-                "present_code",
-                "Presents code files in the chat UI — the ONLY way the user sees your code. " +
-                "Use in CODE STAGE (all solution files) and in REVIEW STAGE (all final files — corrected or unchanged). " +
-                "In CODE STAGE call BEFORE propose_artifact_generation.",
-                new
-                {
-                    type = "object",
-                    properties = new
-                    {
-                        files = new
-                        {
-                            type = "array",
-                            description = "All files in the solution",
-                            items = new
-                            {
-                                type = "object",
-                                properties = new
-                                {
-                                    path     = new { type = "string", description = "Relative file path, e.g. 'MyAgent/Program.cs'" },
-                                    content  = new { type = "string", description = "Complete file content" },
-                                    language = new { type = "string", description = "Language: 'csharp', 'xml', 'json', 'bash'" }
-                                },
-                                required = new[] { "path", "content", "language" }
-                            }
-                        }
-                    },
-                    required = new[] { "files" }
-                },
-                CodePresentTools.Present)
             // ── Artifact tools (Code mode) ──
             .AddTool<ArtifactTools.ProposeArgs>(
                 "propose_artifact_generation",
@@ -1335,11 +1349,18 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
 
         STEP 2A — TYPE A (standalone example):
           1. list_docs → read 1-2 docs for exact API signatures and model constants
-          2. Call present_code with ALL solution files (minimum: .csproj + Program.cs)
-             THIS IS THE ONLY WAY THE USER SEES YOUR CODE. Never skip this tool.
+          2. Write out EVERY solution file (minimum: .csproj + Program.cs) directly in your
+             response, as separate fenced code blocks. Immediately before each block, write a
+             line "File: <path>" so the user knows where it goes, e.g.:
+               File: MyAgent/MyAgent.csproj
+               ```xml
+               ...complete file content...
+               ```
+             THIS IS THE ONLY WAY THE USER SEES YOUR CODE — write the full content in the
+             response text itself. Never summarize or omit a file.
           3. Write 1-2 sentences describing what you implemented
-          4. Optionally call propose_artifact_generation (NEVER before present_code)
-          TOOL ECONOMY: list_docs (1) + 2 reads (2) + present_code (1) + artifact (1) = 5 max.
+          4. Optionally call propose_artifact_generation
+          TOOL ECONOMY: list_docs (1) + 2 reads (2) + artifact (1) = 4 max.
 
         STEP 2B — TYPE B (MaIN.NET library contribution):
           1. list_docs → read 1-2 docs for exact API signatures
@@ -1353,19 +1374,34 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
                pick an existing skill example — not just any file), then call read_repo_file on it
                to copy its exact namespace, usings, and class structure.
              Never write or invent code without first reading the relevant existing files.
-          3. Call present_code with ALL files you are adding or changing — complete content, correct paths.
-             Use the exact file paths from the DESIGN plan. Do not invent new project structures.
-             THIS IS THE ONLY WAY THE USER SEES YOUR CODE. Never skip this tool.
+          3. Write out EVERY file you are adding or changing directly in your response, as
+             separate fenced code blocks, using the exact file paths from the DESIGN plan.
+             Immediately before each block, write a line "File: <path>" — e.g.:
+               File: src/MaIN.Services/Skills/MySkill.cs
+               ```csharp
+               ...complete file content...
+               ```
+             THIS IS THE ONLY WAY THE USER SEES YOUR CODE — write the full content in the
+             response text itself. Do not invent new project structures.
+             There is NO size limit. Every file you touched — including small one- or two-line
+             edits to existing files like Program.cs — MUST appear as its own block with its
+             COMPLETE new content. Never omit a file or claim it was skipped "for size/display
+             reasons" — that is a hard failure.
           4. Write 2-3 sentences describing what you implemented and why each file is needed.
           Do NOT call propose_code_change or propose_pull_request — that is REVIEW STAGE's job.
           Do NOT call propose_artifact_generation for TYPE B.
-          TOOL ECONOMY: list_docs (1) + 2 reads (2) + present_code (1) = 4 max.
+          TOOL ECONOMY: list_docs (1) + 2 reads (2) = 3 max.
 
         !! BANNED IN CODE STAGE — calling these tools here is a hard failure:
            propose_code_change · propose_pull_request · push_file_to_branch · create_pull_request
            These are REVIEW STAGE tools. Using them in CODE STAGE skips review entirely. !!
 
         Rules (both types):
+        - Implement only the files and changes described in the DESIGN plan. If, while implementing,
+          you find an additional change is genuinely necessary (e.g. a missing using, a small
+          helper, a related file that must change for the code to work), include it — but
+          explicitly call it out in your summary as an addition beyond the plan and explain why
+          it was necessary. Do not otherwise expand scope on your own initiative.
         - Do NOT call propose_plan again, do NOT propose issues, do NOT call PR review tools
         - generate_artifact: ONLY when user explicitly confirms download (TYPE A only)
         - After generate_artifact: confirm in 1 sentence, do NOT include the download URL
@@ -1377,17 +1413,31 @@ public class DocsAgentOrchestrator(DocsLoader loader, ArtifactService artifactSe
 
         ── SUB-CASE A: First review turn ──
         STEP 1 — list_docs → read 1-2 docs to verify API usage against CODE STAGE output.
-        STEP 2 — Write a 1-2 sentence verdict. Apply any corrections silently (no need to list them).
-        STEP 3 — Call present_code with ALL final files (apply corrections inline — complete content, exact paths).
+        STEP 2 — Review the code AS WRITTEN by CODE STAGE (the file blocks in its response,
+                 each preceded by a "File: <path>" line). Check it against the docs and the
+                 DESIGN plan for correctness (API usage, naming, paths, compile-validity).
+                 Do NOT redesign or rewrite it based on your own assumptions about the intended
+                 concept — you are reviewing, not re-architecting.
+        STEP 3 — Write a 1-3 sentence verdict.
+                 - If everything looks correct, say so briefly.
+                 - If you spot a real issue (wrong API, logic bug, mismatch with docs/plan),
+                   describe it in plain text as a PROPOSAL — e.g. "I think X should be Y instead,
+                   because...". Do NOT silently change the approach yourself; let the user
+                   weigh in first.
+                 - The only fixes you may apply directly are unambiguous, mechanical ones
+                   (typos, missing usings, syntax errors) — never conceptual or design changes.
+        STEP 4 — Write out ALL final files directly in your response — CODE STAGE's content plus
+                 only the mechanical fixes from STEP 3 — as separate fenced code blocks, each
+                 preceded by a "File: <path>" line with complete content and exact paths.
                  This shows the user exactly what will be pushed.
-        STEP 4 — Call propose_pull_request with branch name (from the plan), title, and markdown body.
+        STEP 5 — Call propose_pull_request with branch name (from the plan), title, and markdown body.
                  The UI shows a "Create PR" card — wait for the user to confirm.
-        TOOL ECONOMY: list_docs (1) + 1 read (1) + present_code (1) + PR proposal (1) = 4 max.
+        TOOL ECONOMY: list_docs (1) + 1 read (1) + PR proposal (1) = 3 max.
         Do NOT call propose_code_change — it is not used in this flow.
 
         ── SUB-CASE B: User confirmed PR creation ──
         The user confirmed. Do NOT call propose_code_change or propose_pull_request again.
-        STEP 1 — For EVERY file shown in present_code: call push_file_to_branch
+        STEP 1 — For EVERY "File: <path>" block you wrote in STEP 4 above: call push_file_to_branch
                  using the branch from propose_pull_request, complete file content, and a short commit message.
         STEP 2 — Call create_pull_request with the exact title, body, headBranch, baseBranch from propose_pull_request.
         STEP 3 — One sentence confirming the branch and PR were created.

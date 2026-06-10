@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { ArtifactProposal, IssueProposal, PlanProposal, PrReviewProposal, CodeChangeProposal, PrProposal, PresentedCodeFile, ReviewPosted, ChatMessage, ToolUsage } from '../models/chat.models';
+import { ArtifactProposal, IssueProposal, PlanProposal, PrReviewProposal, CodeChangeProposal, PrProposal, ReviewPosted, ChatMessage, ToolUsage } from '../models/chat.models';
 
 const API_URL = '/api/chat/complete';
 const CONFIRM_REVIEW_URL = '/api/confirm/review';
@@ -26,7 +26,6 @@ interface ChatApiResponse {
   codeChangeProposed?: CodeChangeProposal;
   prProposed?: PrProposal;
   prUrl?: string;
-  presentedCode?: PresentedCodeFile[];
   reviewPosted?: ReviewPosted;
 }
 
@@ -63,7 +62,6 @@ export interface AgentResponse {
   codeChangeProposed?: CodeChangeProposal;
   prProposed?: PrProposal;
   prUrl?: string;
-  presentedCode?: PresentedCodeFile[];
   reviewPosted?: ReviewPosted;
 }
 
@@ -96,7 +94,7 @@ export class ChatService {
     );
 
     this.abortController = null;
-    return { content: response.text, toolsUsed: response.toolsUsed, estimatedTokens: response.estimatedTokens, artifactUrl: response.artifactUrl, artifactProposed: response.artifactProposed, issueProposed: response.issueProposed, issueUrl: response.issueUrl, planProposed: response.planProposed, reviewProposed: response.reviewProposed, codeChangeProposed: response.codeChangeProposed, prProposed: response.prProposed, prUrl: response.prUrl, presentedCode: response.presentedCode, reviewPosted: response.reviewPosted };
+    return { content: response.text, toolsUsed: response.toolsUsed, estimatedTokens: response.estimatedTokens, artifactUrl: response.artifactUrl, artifactProposed: response.artifactProposed, issueProposed: response.issueProposed, issueUrl: response.issueUrl, planProposed: response.planProposed, reviewProposed: response.reviewProposed, codeChangeProposed: response.codeChangeProposed, prProposed: response.prProposed, prUrl: response.prUrl, reviewPosted: response.reviewPosted };
   }
 
   private get authHeaders(): HttpHeaders {

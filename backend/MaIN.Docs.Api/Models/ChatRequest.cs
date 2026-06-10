@@ -10,7 +10,6 @@ public record PlanProposal(string Title, string Context, List<PlanStep> Steps);
 public record PrReviewProposal(int PrNumber, string Verdict, string Summary, int CommentCount);
 public record CodeChangeProposal(string Branch, string FilePath, string CommitMessage, string Rationale, string Preview);
 public record PrProposal(string Title, string Body, string HeadBranch, string BaseBranch);
-public record PresentedCodeFile(string Path, string Content, string Language);
 public record ReviewPosted(int PrNumber, string Verdict, string Summary, int CommentCount, string Url);
 public record AgentResult(string Content, List<ToolUsage> ToolsUsed, int EstimatedTokens,
     string? ArtifactUrl = null, ArtifactProposal? ArtifactProposed = null,
@@ -18,7 +17,6 @@ public record AgentResult(string Content, List<ToolUsage> ToolsUsed, int Estimat
     PlanProposal? PlanProposed = null,
     PrReviewProposal? ReviewProposed = null, CodeChangeProposal? CodeChangeProposed = null,
     PrProposal? PrProposed = null, string? PrUrl = null,
-    List<PresentedCodeFile>? PresentedCode = null,
     ReviewPosted? ReviewPosted = null);
 public record ChatResponse(string Text, List<ToolUsage> ToolsUsed, int EstimatedTokens,
     string? ArtifactUrl = null, ArtifactProposal? ArtifactProposed = null,
@@ -26,7 +24,6 @@ public record ChatResponse(string Text, List<ToolUsage> ToolsUsed, int Estimated
     PlanProposal? PlanProposed = null,
     PrReviewProposal? ReviewProposed = null, CodeChangeProposal? CodeChangeProposed = null,
     PrProposal? PrProposed = null, string? PrUrl = null,
-    List<PresentedCodeFile>? PresentedCode = null,
     ReviewPosted? ReviewPosted = null);
 public record EnsembleDesignRequest(string Message, List<HistoryMessage> History);
 public record EnsembleCodeRequest(string OriginalMessage, string DesignContent);

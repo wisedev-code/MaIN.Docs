@@ -266,35 +266,12 @@
                 </div>
               }
 
-              @if (msg.presentedCode && msg.presentedCode.length > 0) {
-                <div class="presented-code">
-                  @for (file of msg.presentedCode; track file.path) {
-                    <div class="pc-file">
-                      <div class="pc-file-header">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                          <polyline points="14 2 14 8 20 8"/>
-                        </svg>
-                        <span class="pc-file-path">{{ file.path }}</span>
-                        <span class="pc-lang-tag">{{ file.language }}</span>
-                      </div>
-                      <div class="pc-code" [innerHTML]="renderPresentedCode(file.content, file.language)"></div>
-                    </div>
-                  }
-                </div>
-              }
-
               @if (msg.isError) {
                 <div class="error-card">
-                  <div class="error-emoji-reel">
-                    <span class="e1">🧠</span>
-                    <span class="e2">🔥</span>
-                    <span class="e3">💀</span>
-                    <span class="e4">🌀</span>
-                  </div>
+                  <img class="error-cat" src="/error-cat.gif" alt="" />
                   <div class="error-body">
-                    <span class="error-title">Context limit reached</span>
-                    <span class="error-sub">The agent ran out of thinking space. Simplify the request or start fresh.</span>
+                    <span class="error-title">I am tired boss..</span>
+                    <span class="error-sub">will take a nap. Try again later.</span>
                   </div>
                   <button class="error-retry-btn" (click)="retryLastMessage()" title="Retry">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">

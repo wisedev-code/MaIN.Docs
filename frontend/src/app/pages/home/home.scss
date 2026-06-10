@@ -1622,11 +1622,11 @@
 }
 
 // ── Error card ─────────────────────────────────────────
-@keyframes emojiCycle {
-  0%, 24%   { opacity: 1; transform: scale(1) rotate(0deg); }
-  12%       { transform: scale(1.15) rotate(-5deg); }
-  24.1%     { opacity: 0; transform: scale(0.7); }
-  100%      { opacity: 0; }
+@keyframes catBounce {
+  0%, 100% { transform: translateY(0) scale(1); }
+  30%      { transform: translateY(-10px) scale(1.04); }
+  50%      { transform: translateY(0) scale(0.97); }
+  70%      { transform: translateY(-4px) scale(1.01); }
 }
 
 .error-card {
@@ -1642,27 +1642,13 @@
   max-width: 460px;
 }
 
-.error-emoji-reel {
-  position: relative;
-  width: 44px;
-  height: 44px;
+.error-cat {
+  width: 48px;
+  height: 48px;
   flex-shrink: 0;
-
-  span {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 30px;
-    opacity: 0;
-    animation: emojiCycle 3.2s steps(1, end) infinite;
-
-    &.e1 { animation-delay: 0s; }
-    &.e2 { animation-delay: 0.8s; }
-    &.e3 { animation-delay: 1.6s; }
-    &.e4 { animation-delay: 2.4s; }
-  }
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  animation: catBounce 1.4s ease-in-out infinite;
 }
 
 .error-body {
@@ -1710,85 +1696,39 @@
   svg { flex-shrink: 0; }
 }
 
-// ── Presented code (Forge CODE STAGE) ──────────────────
-.presented-code {
-  margin-top: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  animation: fadeReveal 0.3s ease both;
-}
-
-.pc-file {
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  border-left: 2px solid var(--accent);
-  overflow: hidden;
-}
-
-.pc-file-header {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 5px 12px;
-  background: var(--accent-glow);
-  border-bottom: 1px solid var(--border);
-
-  svg { opacity: 0.5; flex-shrink: 0; }
-}
-
-.pc-file-path {
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: 11px;
-  color: var(--text-dim);
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.pc-lang-tag {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
-  color: var(--accent-dim);
-  opacity: 0.7;
-  text-transform: lowercase;
-  letter-spacing: 0.3px;
-}
-
-.pc-code {
-  pre {
-    margin: 0;
-    padding: 14px 16px;
-    overflow-x: auto;
-    font-size: 12.5px;
-    line-height: 1.6;
-    background: var(--bg-surface);
-  }
-
-  code { font-family: 'JetBrains Mono', 'Fira Code', monospace; }
-}
-
 // ── Chat back button ────────────────────────────────────
 .chat-back-btn {
+  position: fixed;
+  top: 68px;
+  right: 1.25rem;
+  z-index: 60;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  margin: 0.5rem 1.5rem 0;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-subtle);
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border-accent);
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  color: var(--text-muted);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  align-self: flex-start;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
   transition: all 0.15s;
 
   &:hover {
-    border-color: var(--border-accent);
-    color: var(--text-muted);
-    background: var(--bg-card);
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-glow);
+    box-shadow: 0 4px 16px var(--accent-glow);
+    transform: translateX(-2px);
+  }
+
+  @media (max-width: 640px) {
+    top: 64px;
+    right: 0.75rem;
+    width: 32px;
+    height: 32px;
   }
 }
 

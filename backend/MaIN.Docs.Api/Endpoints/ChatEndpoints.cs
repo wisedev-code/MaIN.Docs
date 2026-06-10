@@ -116,7 +116,7 @@ public static class ChatEndpoints
         {
             var messages = BuildMessages(request);
             var result = await orchestrator.ProcessAsync(request.AgentId, messages, ct);
-            return Results.Ok(new ChatResponse(result.Content, result.ToolsUsed, result.EstimatedTokens, result.ArtifactUrl, result.ArtifactProposed, result.IssueProposed, result.IssueUrl, result.PlanProposed, result.ReviewProposed, result.CodeChangeProposed, result.PrProposed, result.PrUrl, result.PresentedCode, result.ReviewPosted));
+            return Results.Ok(new ChatResponse(result.Content, result.ToolsUsed, result.EstimatedTokens, result.ArtifactUrl, result.ArtifactProposed, result.IssueProposed, result.IssueUrl, result.PlanProposed, result.ReviewProposed, result.CodeChangeProposed, result.PrProposed, result.PrUrl, result.ReviewPosted));
         }
         catch (TimeoutException ex)
         {

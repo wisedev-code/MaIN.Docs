@@ -56,12 +56,6 @@ export interface PrProposal {
   baseBranch: string;
 }
 
-export interface PresentedCodeFile {
-  path: string;
-  content: string;
-  language: string;
-}
-
 export interface ReviewPosted {
   prNumber: number;
   verdict: string;
@@ -86,7 +80,6 @@ export interface ChatMessage {
   codeChangeProposed?: CodeChangeProposal;
   prProposed?: PrProposal;
   prUrl?: string;
-  presentedCode?: PresentedCodeFile[];
   reviewPosted?: ReviewPosted;
   isError?: boolean;
   attachments?: Attachment[];

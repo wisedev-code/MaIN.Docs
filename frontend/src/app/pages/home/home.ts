@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { SlicePipe } from '@angular/common';
 import { ChatService } from '../../services/chat.service';
 import { AppStateService } from '../../services/app-state.service';
-import { ArtifactProposal, IssueProposal, PlanProposal, PrReviewProposal, CodeChangeProposal, PrProposal, PresentedCodeFile, ReviewPosted, ChatMessage, ToolUsage, AgentDefinition, AGENTS, Attachment } from '../../models/chat.models';
+import { ArtifactProposal, IssueProposal, PlanProposal, PrReviewProposal, CodeChangeProposal, PrProposal, ReviewPosted, ChatMessage, ToolUsage, AgentDefinition, AGENTS, Attachment } from '../../models/chat.models';
 
 import hljs from 'highlight.js/lib/core';
 import csharp from 'highlight.js/lib/languages/csharp';
@@ -180,7 +180,7 @@ export class Home implements OnDestroy {
       } else {
         const response = await this.chatService.sendMessage(this.selectedAgent().id, apiText, history);
         const msgIndex = this.messages().length - 1;
-        await this.revealWordByWord(response.content, msgIndex, response.toolsUsed, response.estimatedTokens, response.artifactUrl, response.artifactProposed, response.issueProposed, response.issueUrl, response.planProposed, response.reviewProposed, response.codeChangeProposed, response.prProposed, response.prUrl, response.presentedCode, response.reviewPosted);
+        await this.revealWordByWord(response.content, msgIndex, response.toolsUsed, response.estimatedTokens, response.artifactUrl, response.artifactProposed, response.issueProposed, response.issueUrl, response.planProposed, response.reviewProposed, response.codeChangeProposed, response.prProposed, response.prUrl, response.reviewPosted);
 
         if (response.artifactProposed && !response.artifactUrl) {
           this.artifactProposal.set(response.artifactProposed);
@@ -205,7 +205,7 @@ export class Home implements OnDestroy {
         if (this.selectedAgent().id === 'forge') {
           if (this.forgeStage() === 'design' && response.planProposed) {
             this.showForgeNextPrompt.set(true);
-          } else if (this.forgeStage() === 'code' && (response.presentedCode?.length || response.artifactProposed || response.artifactUrl || response.prProposed)) {
+          } else if (this.forgeStage() === 'code' && (response.content?.trim().length || response.artifactProposed || response.artifactUrl || response.prProposed)) {
             this.showForgeNextPrompt.set(true);
           }
         }
@@ -223,6 +223,7 @@ export class Home implements OnDestroy {
       });
     } finally {
       this.isStreaming.set(false);
+      this.saveToRecent();
     }
   }
 
@@ -240,7 +241,6 @@ export class Home implements OnDestroy {
     codeChangeProposed?: CodeChangeProposal,
     prProposed?: PrProposal,
     prUrl?: string,
-    presentedCode?: PresentedCodeFile[],
     reviewPosted?: ReviewPosted
   ) {
     const CHUNK = 4;
@@ -284,7 +284,6 @@ export class Home implements OnDestroy {
         codeChangeProposed,
         prProposed,
         prUrl,
-        presentedCode,
         reviewPosted,
       };
       return updated;
@@ -441,6 +440,7 @@ export class Home implements OnDestroy {
         });
       } finally {
         this.isStreaming.set(false);
+        this.saveToRecent();
       }
 
     } else if (step === 'code') {
@@ -477,6 +477,7 @@ export class Home implements OnDestroy {
         });
       } finally {
         this.isStreaming.set(false);
+        this.saveToRecent();
       }
     }
   }
@@ -536,7 +537,6 @@ export class Home implements OnDestroy {
   }
 
   clear() {
-    this.saveToRecent();
     this.messages.set([]);
     this.showArtifactPrompt.set(false);
     this.artifactProposal.set(null);
@@ -627,21 +627,6 @@ export class Home implements OnDestroy {
     return `<div class="code-block code-block-step"><div class="code-header"><span class="code-lang">${lang || 'code'}</span><button class="copy-btn" title="Copy code">${Home.COPY_ICON}</button></div><pre><code class="hljs">${highlighted}</code></pre></div>`;
   }
 
-  renderPresentedCode(content: string, language: string): string {
-    const lang = language.toLowerCase();
-    let highlighted: string;
-    try {
-      if (lang && hljs.getLanguage(lang)) {
-        highlighted = hljs.highlight(content, { language: lang }).value;
-      } else {
-        highlighted = hljs.highlightAuto(content, ['csharp', 'json', 'bash', 'xml']).value;
-      }
-    } catch {
-      highlighted = content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
-    return `<pre><code class="hljs">${highlighted}</code></pre>`;
-  }
-
   onKeydown(event: KeyboardEvent) {
     if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); this.send(); }
   }
@@ -726,15 +711,20 @@ export class Home implements OnDestroy {
     const preview = (firstUser?.content ?? '').trim().slice(0, 50);
     if (!preview) return;
     const existing = this.recentConversations();
-    if (existing.length > 0 && existing[0].preview === preview && existing[0].agentId === this.selectedAgent().id) return;
-    const entry: SavedConversation = {
-      id: crypto.randomUUID(),
-      agentId: this.selectedAgent().id,
-      preview,
-      messages: msgs,
-      timestamp: Date.now(),
-    };
-    const updated = [entry, ...existing].slice(0, 4);
+    const cleanMessages = msgs.map(m => m.streaming ? { ...m, streaming: false } : m);
+    let updated: SavedConversation[];
+    if (existing.length > 0 && existing[0].preview === preview && existing[0].agentId === this.selectedAgent().id) {
+      updated = [{ ...existing[0], messages: cleanMessages, timestamp: Date.now() }, ...existing.slice(1)];
+    } else {
+      const entry: SavedConversation = {
+        id: crypto.randomUUID(),
+        agentId: this.selectedAgent().id,
+        preview,
+        messages: cleanMessages,
+        timestamp: Date.now(),
+      };
+      updated = [entry, ...existing].slice(0, 4);
+    }
     this.recentConversations.set(updated);
     try { localStorage.setItem('main-recent-convos', JSON.stringify(updated)); } catch { /**/ }
   }
