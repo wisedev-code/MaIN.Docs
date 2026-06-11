@@ -843,10 +843,11 @@ public class DocsAgentOrchestrator(
                 FileTools.Show)
             .AddTool<ArtifactTools.ProposeArgs>(
                 "propose_artifact_generation",
-                "Signals the UI to offer a downloadable ZIP of the files you just showed via show_file. " +
-                "Call AFTER all show_file calls are done. At most once per response. " +
-                "Only call when the solution is complete and runnable. " +
-                "Always pass the 'kind' arg matching the project shape (api/console/desktop).",
+                "REQUIRED: call this after every response that used show_file. " +
+                "Signals the UI to offer a downloadable ZIP of the files already shown. " +
+                "Call ONCE, after all show_file calls are done, before ending your turn. " +
+                "Skipping this after calling show_file is a bug — always pair them. " +
+                "Pass the 'kind' arg matching the project shape (api/console/desktop).",
                 new
                 {
                     type = "object",
@@ -1339,9 +1340,10 @@ public class DocsAgentOrchestrator(
         1. Call show_file once for EVERY file in the solution — minimum .csproj + Program.cs.
            This is the ONLY way the user sees your code. Do NOT write fenced code blocks in your
            text. Do NOT combine files or skip any file.
-        2. After all show_file calls, write 1-2 sentences in your text describing what you built.
-        3. Call propose_artifact_generation to offer the download. Only call when the solution
-           is complete and runnable (has .csproj + Program.cs, runs with 'dotnet run').
+        2. After ALL show_file calls are done, write 1-2 sentences in your text describing what you built.
+        3. Call propose_artifact_generation IMMEDIATELY after step 2 — this is NOT optional.
+           Every response that called show_file MUST end with propose_artifact_generation.
+           If you showed files but skipped this call, your response is incomplete.
         4. The UI packages the shown files into a ZIP when the user clicks download — you do NOT
            need to call any generate tool. Never confirm or mention downloading in your text.
 
