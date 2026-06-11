@@ -225,6 +225,7 @@ public class DocsAgentOrchestrator(
         CodeChangeProposal? codeChangeProposed = null;
         PrProposal? prProposed = null;
         string? prUrl = null;
+        var filesProposed = new List<ProposedFile>();
 
         var docsRead = new List<string>();
         var toolResultChars = 0;
@@ -238,6 +239,7 @@ public class DocsAgentOrchestrator(
         {
             ArtifactTools.SetCapture(url => artifactUrl = url);
             ArtifactTools.SetProposalCapture(p => artifactProposed = new ArtifactProposal(p.ArchiveName, p.Description, p.Kind));
+            FileTools.SetCapture(f => filesProposed.Add(new ProposedFile(f.Path, f.Content, f.Language)));
         }
 
         if (agentId is "design" or "ensemble-design")
@@ -354,7 +356,8 @@ public class DocsAgentOrchestrator(
                 return new AgentResult(content ?? string.Empty, toolsUsed, estimatedTokens,
                     artifactUrl, artifactProposed, issueProposed, issueUrl, planProposed,
                     reviewProposed, codeChangeProposed, prProposed, prUrl, reviewPosted,
-                    DocsRead: docsRead.Distinct().ToList());
+                    DocsRead: docsRead.Distinct().ToList(),
+                    FilesProposed: filesProposed.Count > 0 ? filesProposed : null);
             }
 
             try
@@ -374,6 +377,7 @@ public class DocsAgentOrchestrator(
                 issueUrl = null; issueProposed = null; planProposed = null;
                 reviewProposed = null; reviewPosted = null; codeChangeProposed = null;
                 prProposed = null; prUrl = null;
+                filesProposed.Clear();
 
                 await InitializeForTierAsync(3);
                 return await Core(_agents[agentId]);
@@ -383,6 +387,7 @@ public class DocsAgentOrchestrator(
         {
             ArtifactTools.SetCapture(null);
             ArtifactTools.SetProposalCapture(null);
+            FileTools.SetCapture(null);
             IssueTools.SetProposalCapture(null);
             IssueTools.SetUrlCapture(null);
             PlanTools.SetCapture(null);
@@ -818,15 +823,30 @@ public class DocsAgentOrchestrator(
 
     private static ToolsConfiguration BuildCodeTools(string docsPath) =>
         SharedDocsTools()
+            .AddTool<FileTools.ShowFileArgs>(
+                "show_file",
+                "Renders a file as a collapsible code tile in the UI. " +
+                "Call once per file — this is the ONLY way the user sees your code. " +
+                "Do NOT write fenced code blocks in your text response. " +
+                "Call for every file in the solution: minimum .csproj + Program.cs.",
+                new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        path     = new { type = "string", description = "Relative file path, e.g. MyAgent/Program.cs or MyAgent/MyAgent.csproj" },
+                        content  = new { type = "string", description = "Complete file content" },
+                        language = new { type = "string", description = "Language for syntax highlighting: csharp, xml, json, bash, etc." }
+                    },
+                    required = new[] { "path", "content", "language" }
+                },
+                FileTools.Show)
             .AddTool<ArtifactTools.ProposeArgs>(
                 "propose_artifact_generation",
-                "Signals the UI to offer a downloadable ZIP artifact. " +
-                "Call when your response contains a complete, compilable solution — not for partial snippets or conceptual answers. " +
-                "Skip it when the user is just exploring or when you'd need more details to make the code runnable. " +
-                "Call at most once per response. " +
-                "REQUIRES that the SAME response already contains the full code as fenced code blocks " +
-                "(File: <path> + ```lang block for every file) — this tool offers a download, it does not replace showing the code. " +
-                "Always pass the 'kind' arg matching the project shape you wrote (api/console/desktop) — see PROJECT KINDS.",
+                "Signals the UI to offer a downloadable ZIP of the files you just showed via show_file. " +
+                "Call AFTER all show_file calls are done. At most once per response. " +
+                "Only call when the solution is complete and runnable. " +
+                "Always pass the 'kind' arg matching the project shape (api/console/desktop).",
                 new
                 {
                     type = "object",
@@ -838,44 +858,12 @@ public class DocsAgentOrchestrator(
                         {
                             type = "string",
                             @enum = new[] { "api", "console", "desktop" },
-                            description = "The project kind you just wrote: api (ASP.NET Core), console, or desktop (Avalonia)."
+                            description = "The project kind: api (ASP.NET Core), console, or desktop (Avalonia)."
                         }
                     },
                     required = new[] { "archiveName", "description", "kind" }
                 },
                 ArtifactTools.Propose)
-            .AddTool<ArtifactTools.GenerateArgs>(
-                "generate_artifact",
-                "Packages a complete .NET solution into a ZIP archive and uploads it to cloud storage. " +
-                "ONLY call when the user explicitly confirms they want to download. " +
-                "Include all files needed to run: .csproj with correct NuGet references (use Version=\"*\" for MaIN.NET/MaIN.Skills.* — never a guessed version number), Program.cs, and any supporting files. " +
-                "Do NOT call proactively.",
-                new
-                {
-                    type = "object",
-                    properties = new
-                    {
-                        archiveName = new { type = "string", description = "ZIP filename, e.g. MyAgent.zip" },
-                        files = new
-                        {
-                            type = "array",
-                            description = "Files to include in the archive",
-                            items = new
-                            {
-                                type = "object",
-                                properties = new
-                                {
-                                    path    = new { type = "string", description = "Relative path inside the zip, e.g. MyAgent/Program.cs" },
-                                    content = new { type = "string", description = "Complete file content" }
-                                },
-                                required = new[] { "path", "content" }
-                            }
-                        },
-                        description = new { type = "string", description = "One-line description of what the solution does" }
-                    },
-                    required = new[] { "archiveName", "files" }
-                },
-                ArtifactTools.Generate)
             .WithMaxIterations(10)
             .WithToolChoice("auto")
             .Build();
@@ -1254,7 +1242,7 @@ public class DocsAgentOrchestrator(
         - Console bootstrap: MaINBootstrapper.Initialize(); ASP.NET: services.AddMaIN(configuration)
         - MCP has 3 integration styles: direct prompt, agent pipeline step, RAG knowledge source
 
-        TOOL ECONOMY: You have 7 tool slots. list_docs (1) → read app-template doc + maybe 1 more (2) → answer. Never read the same file twice. Propose artifact counts as 1 slot.
+        TOOL ECONOMY: You have 10 tool slots. list_docs (1) → read app-template doc + maybe 1 more (2) → show_file × N files (N) → propose_artifact_generation (1) = done. Never read the same file twice.
 
         TOOLS — use them every time, no improvising:
         1. list_docs — discover what files exist
@@ -1348,17 +1336,17 @@ public class DocsAgentOrchestrator(
           — NOT a type called "FileTypeFilter").
 
         ARTIFACTS — MANDATORY ORDER, NO EXCEPTIONS:
-        1. Write out EVERY file of the complete solution directly in your response TEXT first — minimum
-           .csproj + Program.cs, each as its own fenced code block immediately preceded by a line
-           "File: <path>". Nothing omitted, nothing summarized. THIS IS THE ONLY WAY THE USER SEES YOUR CODE.
-        2. ONLY THEN, in that same response, may you call propose_artifact_generation as an optional
-           convenience download. Calling it without first writing the code blocks in step 1 is a hard
-           failure — a tool call is not a substitute for showing the code.
-        3. Only propose when the solution is complete and runnable (has .csproj + Program.cs + runs with 'dotnet run').
-        4. generate_artifact: ONLY when the user explicitly confirms they want the download. Package the full project.
-        5. After generate_artifact succeeds, do NOT include the download URL in your text — the UI shows a download card. Just confirm it's ready.
+        1. Call show_file once for EVERY file in the solution — minimum .csproj + Program.cs.
+           This is the ONLY way the user sees your code. Do NOT write fenced code blocks in your
+           text. Do NOT combine files or skip any file.
+        2. After all show_file calls, write 1-2 sentences in your text describing what you built.
+        3. Call propose_artifact_generation to offer the download. Only call when the solution
+           is complete and runnable (has .csproj + Program.cs, runs with 'dotnet run').
+        4. The UI packages the shown files into a ZIP when the user clicks download — you do NOT
+           need to call any generate tool. Never confirm or mention downloading in your text.
 
-        RESPONSE RULE: ALWAYS write text in your response. When proposing an artifact, include a brief explanation of what you built. When generating an artifact, confirm it's ready in 1 sentence. Never return an empty text response.
+        RESPONSE RULE: ALWAYS write text in your response. Keep it to 1-3 sentences — the code is
+        shown via show_file tiles, so your text is just the summary. Never return an empty text response.
         """;
 
     private const string DesignSystemPrompt = """

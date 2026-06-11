@@ -65,6 +65,12 @@ export interface ReviewPosted {
   url: string;
 }
 
+export interface ProposedFile {
+  path: string;
+  content: string;
+  language: string;
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -88,6 +94,7 @@ export interface ChatMessage {
   agentId?: string;
   branchName?: string;
   docsRead?: string[];
+  filesProposed?: ProposedFile[];
 }
 
 export interface AgentCapability {

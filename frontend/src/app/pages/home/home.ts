@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { SlicePipe } from '@angular/common';
 import { ChatService, CapacityStatus } from '../../services/chat.service';
 import { AppStateService } from '../../services/app-state.service';
-import { ArtifactProposal, IssueProposal, PlanProposal, PrReviewProposal, CodeChangeProposal, PrProposal, ReviewPosted, ChatMessage, ToolUsage, AgentDefinition, AGENTS, Attachment } from '../../models/chat.models';
+import { ArtifactProposal, IssueProposal, PlanProposal, PrReviewProposal, CodeChangeProposal, PrProposal, ReviewPosted, ChatMessage, ToolUsage, AgentDefinition, AGENTS, Attachment, ProposedFile } from '../../models/chat.models';
 
 import hljs from 'highlight.js/lib/core';
 import csharp from 'highlight.js/lib/languages/csharp';
@@ -92,6 +92,7 @@ export class Home implements OnDestroy {
   runModalArtifactUrl = signal<string | null>(null);
   runPanelOs = signal<'unix' | 'windows'>(this.detectOs());
   capacity = signal<'normal' | 'low' | 'very-low'>('normal');
+  expandedFiles = signal(new Set<string>());
 
   capacityMeta = computed(() => ({
     normal:     { emoji: '✦', label: 'Full',    cls: 'cap-normal'  },
@@ -212,7 +213,7 @@ export class Home implements OnDestroy {
         if (response.capacity) this.capacity.set(response.capacity as any);
         this.logCapacityDebug(response.capacityDetails);
         const msgIndex = this.messages().length - 1;
-        await this.revealWordByWord(response.content, msgIndex, response.toolsUsed, response.estimatedTokens, response.artifactUrl, response.artifactProposed, response.issueProposed, response.issueUrl, response.planProposed, response.reviewProposed, response.codeChangeProposed, response.prProposed, response.prUrl, response.reviewPosted, response.docsRead, response.artifactUrl ? this.pendingArtifactKind : undefined);
+        await this.revealWordByWord(response.content, msgIndex, response.toolsUsed, response.estimatedTokens, response.artifactUrl, response.artifactProposed, response.issueProposed, response.issueUrl, response.planProposed, response.reviewProposed, response.codeChangeProposed, response.prProposed, response.prUrl, response.reviewPosted, response.docsRead, response.artifactUrl ? this.pendingArtifactKind : undefined, response.filesProposed);
 
         if (response.artifactProposed && !response.artifactUrl) {
           this.artifactProposal.set(response.artifactProposed);
@@ -276,7 +277,8 @@ export class Home implements OnDestroy {
     prUrl?: string,
     reviewPosted?: ReviewPosted,
     docsRead?: string[],
-    artifactKind?: 'api' | 'console' | 'desktop'
+    artifactKind?: 'api' | 'console' | 'desktop',
+    filesProposed?: ProposedFile[]
   ) {
     const CHUNK = 4;
     const DELAY = 32;
@@ -322,6 +324,7 @@ export class Home implements OnDestroy {
         reviewPosted,
         docsRead,
         artifactKind,
+        filesProposed,
       };
       return updated;
     });
@@ -338,14 +341,14 @@ export class Home implements OnDestroy {
     this.selectedArtifactKind.set(kind);
   }
 
-  requestArtifact() {
+  async requestArtifact() {
     const proposal = this.artifactProposal();
     const kind = this.selectedArtifactKind();
     this.pendingArtifactKind = kind;
     this.dismissArtifactPrompt();
-    const hint = proposal ? ` Name the archive ${proposal.archiveName}.` : '';
 
     if (proposal && kind !== proposal.kind) {
+      // Different kind selected — agent needs to regenerate everything
       const labels: Record<'api' | 'console' | 'desktop', string> = {
         api: 'ASP.NET Core API',
         console: 'Console App',
@@ -353,13 +356,44 @@ export class Home implements OnDestroy {
       };
       this.inputText.set(
         `Please regenerate this as a ${labels[kind]} (read app-template-${kind}.md first), ` +
-        `showing the updated files per your rules, then generate the downloadable artifact.${hint}`
+        `call show_file for each new file, then call propose_artifact_generation. Archive name: ${proposal?.archiveName ?? 'app.zip'}.`
       );
-    } else {
-      this.inputText.set(`Please generate the downloadable artifact now.${hint}`);
+      this.send();
+      return;
     }
 
-    this.send();
+    // Same kind — use the files already captured in the last assistant message
+    const lastMsg = [...this.messages()].reverse().find(m => m.role === 'assistant' && m.filesProposed?.length);
+    const files = lastMsg?.filesProposed ?? [];
+    const archiveName = proposal?.archiveName ?? 'artifact.zip';
+
+    if (files.length === 0) {
+      // Fallback: ask agent to re-show files (edge case — shouldn't normally happen)
+      this.inputText.set(`Please call show_file for each file and then propose_artifact_generation. Archive name: ${archiveName}.`);
+      this.send();
+      return;
+    }
+
+    // Direct ZIP generation — no agent turn needed
+    this.isStreaming.set(true);
+    try {
+      const url = await this.chatService.generateArtifact(archiveName, files);
+      // Inject a download URL into the last assistant message so the download card appears
+      this.messages.update(msgs => {
+        const updated = [...msgs];
+        const idx = updated.length - 1 - [...updated].reverse().findIndex(m => m.role === 'assistant' && m.filesProposed?.length);
+        if (idx >= 0 && idx < updated.length) {
+          updated[idx] = { ...updated[idx], artifactUrl: url };
+        }
+        return updated;
+      });
+    } catch {
+      // Fallback to agent if direct call fails
+      this.inputText.set(`Please call show_file for each file and then propose_artifact_generation. Archive name: ${archiveName}.`);
+      this.send();
+    } finally {
+      this.isStreaming.set(false);
+    }
   }
 
   dismissIssuePrompt() {
@@ -619,6 +653,7 @@ export class Home implements OnDestroy {
     this.ensembleStep.set('idle');
     this.showEnsembleAccept.set(false);
     this.ensembleContext.set(null);
+    this.expandedFiles.set(new Set());
     this.resetTextareaHeight();
   }
 
@@ -785,6 +820,51 @@ export class Home implements OnDestroy {
 
   toolTokenEstimate(toolsUsed: ToolUsage[]): number {
     return toolsUsed.reduce((sum, t) => sum + t.calls * 540, 0);
+  }
+
+  toggleFile(msgIdx: number, path: string) {
+    const key = `${msgIdx}:${path}`;
+    this.expandedFiles.update(s => {
+      const next = new Set(s);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  }
+
+  isFileExpanded(msgIdx: number, path: string): boolean {
+    return this.expandedFiles().has(`${msgIdx}:${path}`);
+  }
+
+  inferLang(path: string): string {
+    const ext = path.split('.').pop()?.toLowerCase() ?? '';
+    return ({ cs: 'csharp', csproj: 'xml', axaml: 'xml', json: 'json', sh: 'bash', ps1: 'bash' } as Record<string, string>)[ext] ?? ext;
+  }
+
+  renderFileContent(file: ProposedFile): string {
+    const lang = file.language || this.inferLang(file.path);
+    let highlighted: string;
+    const code = file.content;
+    try {
+      if (lang && hljs.getLanguage(lang)) {
+        highlighted = hljs.highlight(code, { language: lang }).value;
+      } else {
+        highlighted = hljs.highlightAuto(code, ['csharp', 'json', 'bash', 'xml']).value;
+      }
+    } catch {
+      highlighted = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    return `<pre><code class="hljs">${highlighted}</code></pre>`;
+  }
+
+  copyFileContent(content: string, event: Event) {
+    event.stopPropagation();
+    const btn = event.currentTarget as HTMLButtonElement;
+    navigator.clipboard.writeText(content).then(() => {
+      const original = btn.textContent ?? '';
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = original; btn.classList.remove('copied'); }, 2000);
+    }).catch(() => {});
   }
 
   private scrollToBottom() {

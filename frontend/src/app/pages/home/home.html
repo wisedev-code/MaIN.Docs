@@ -83,7 +83,7 @@
 
     @if (hasMessages()) {
       <div class="messages" #messagesEl (click)="onMessagesClick($event)">
-        @for (msg of messages(); track $index) {
+        @for (msg of messages(); track $index; let msgIdx = $index) {
           <div class="message" [class.user]="msg.role === 'user'" [class.assistant]="msg.role === 'assistant'">
             @if (msg.role === 'assistant') {
               <div class="msg-avatar-wrap">
@@ -318,6 +318,24 @@
                 @if (msg.streaming) {
                   <span class="cursor">▌</span>
                 }
+              }
+
+              @if (!msg.streaming && msg.filesProposed && msg.filesProposed.length > 0) {
+                <div class="file-tiles">
+                  @for (file of msg.filesProposed; track file.path) {
+                    <div class="file-tile" [class.open]="isFileExpanded(msgIdx, file.path)">
+                      <button class="ft-header" (click)="toggleFile(msgIdx, file.path)">
+                        <span class="ft-chevron">›</span>
+                        <span class="ft-lang">{{ file.language || inferLang(file.path) }}</span>
+                        <span class="ft-path">{{ file.path }}</span>
+                        <button class="ft-copy" (click)="copyFileContent(file.content, $event)">copy</button>
+                      </button>
+                      @if (isFileExpanded(msgIdx, file.path)) {
+                        <div class="ft-body" [innerHTML]="renderFileContent(file)"></div>
+                      }
+                    </div>
+                  }
+                </div>
               }
             </div>
           </div>

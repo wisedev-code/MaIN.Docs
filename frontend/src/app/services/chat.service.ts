@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { ArtifactProposal, IssueProposal, PlanProposal, PrReviewProposal, CodeChangeProposal, PrProposal, ReviewPosted, ChatMessage, ToolUsage } from '../models/chat.models';
+import { ArtifactProposal, IssueProposal, PlanProposal, PrReviewProposal, CodeChangeProposal, PrProposal, ReviewPosted, ChatMessage, ToolUsage, ProposedFile } from '../models/chat.models';
 
 const API_URL = '/api/chat/complete';
 const CONFIRM_REVIEW_URL = '/api/confirm/review';
@@ -11,6 +11,7 @@ const CONFIRM_PR_URL = '/api/confirm/pr';
 const ENSEMBLE_DESIGN_URL = '/api/ensemble/design';
 const ENSEMBLE_CODE_URL = '/api/ensemble/code';
 const ENSEMBLE_REVIEW_URL = '/api/ensemble/review';
+const ARTIFACT_GENERATE_URL = '/api/artifact/generate';
 
 export interface CapacityStatus {
   tier: number;
@@ -38,6 +39,7 @@ interface ChatApiResponse {
   docsRead?: string[];
   capacity?: string;
   capacityDetails?: CapacityStatus;
+  filesProposed?: ProposedFile[];
 }
 
 interface EnsembleCodeApiResponse {
@@ -81,6 +83,7 @@ export interface AgentResponse {
   docsRead?: string[];
   capacity?: string;
   capacityDetails?: CapacityStatus;
+  filesProposed?: ProposedFile[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -112,11 +115,19 @@ export class ChatService {
     );
 
     this.abortController = null;
-    return { content: response.text, toolsUsed: response.toolsUsed, estimatedTokens: response.estimatedTokens, artifactUrl: response.artifactUrl, artifactProposed: response.artifactProposed, issueProposed: response.issueProposed, issueUrl: response.issueUrl, planProposed: response.planProposed, reviewProposed: response.reviewProposed, codeChangeProposed: response.codeChangeProposed, prProposed: response.prProposed, prUrl: response.prUrl, reviewPosted: response.reviewPosted, docsRead: response.docsRead, capacity: response.capacity, capacityDetails: response.capacityDetails };
+    return { content: response.text, toolsUsed: response.toolsUsed, estimatedTokens: response.estimatedTokens, artifactUrl: response.artifactUrl, artifactProposed: response.artifactProposed, issueProposed: response.issueProposed, issueUrl: response.issueUrl, planProposed: response.planProposed, reviewProposed: response.reviewProposed, codeChangeProposed: response.codeChangeProposed, prProposed: response.prProposed, prUrl: response.prUrl, reviewPosted: response.reviewPosted, docsRead: response.docsRead, capacity: response.capacity, capacityDetails: response.capacityDetails, filesProposed: response.filesProposed };
   }
 
   private get authHeaders(): HttpHeaders {
     return new HttpHeaders({ 'Content-Type': 'application/json' });
+  }
+
+  async generateArtifact(archiveName: string, files: ProposedFile[]): Promise<string> {
+    const body = { archiveName, files: files.map(f => ({ path: f.path, content: f.content })) };
+    const res = await firstValueFrom(
+      this.http.post<{ url: string }>(ARTIFACT_GENERATE_URL, body, { headers: this.authHeaders })
+    );
+    return res.url;
   }
 
   async confirmReview(): Promise<string> {

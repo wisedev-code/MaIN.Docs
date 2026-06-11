@@ -1,5 +1,9 @@
 namespace MaIN.Docs.Api.Models;
 
+public record ProposedFile(string Path, string Content, string Language);
+public record ArtifactFileEntry(string Path, string Content);
+public record ArtifactGenerateRequest(string ArchiveName, List<ArtifactFileEntry> Files, string Description = "");
+
 public record HistoryMessage(string Role, string Content);
 public record ChatRequest(string AgentId, string Message, List<HistoryMessage> History, List<string>? DocsAlreadyRead = null);
 public record ToolUsage(string Name, int Calls);
@@ -18,7 +22,8 @@ public record AgentResult(string Content, List<ToolUsage> ToolsUsed, int Estimat
     PrReviewProposal? ReviewProposed = null, CodeChangeProposal? CodeChangeProposed = null,
     PrProposal? PrProposed = null, string? PrUrl = null,
     ReviewPosted? ReviewPosted = null,
-    List<string>? DocsRead = null);
+    List<string>? DocsRead = null,
+    List<ProposedFile>? FilesProposed = null);
 public record ChatResponse(string Text, List<ToolUsage> ToolsUsed, int EstimatedTokens,
     string? ArtifactUrl = null, ArtifactProposal? ArtifactProposed = null,
     IssueProposal? IssueProposed = null, string? IssueUrl = null,
@@ -28,7 +33,8 @@ public record ChatResponse(string Text, List<ToolUsage> ToolsUsed, int Estimated
     ReviewPosted? ReviewPosted = null,
     List<string>? DocsRead = null,
     string Capacity = "normal",
-    CapacityStatus? CapacityDetails = null);
+    CapacityStatus? CapacityDetails = null,
+    List<ProposedFile>? FilesProposed = null);
 public record EnsembleDesignRequest(string Message, List<HistoryMessage> History);
 public record EnsembleCodeRequest(string OriginalMessage, string DesignContent);
 public record EnsembleReviewRequest(string OriginalMessage, string DesignContent, string CodeContent, string BranchName);

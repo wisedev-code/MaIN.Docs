@@ -541,6 +541,106 @@
 .cap-low     { color: #f59e0b; border-color: rgba(245,158,11,0.3); }
 .cap-verylow { color: var(--text-subtle); }
 
+// ── File tiles (Code agent show_file results) ──────────────────────────────
+.file-tiles {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+}
+
+.file-tile {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg-card);
+  transition: border-color 0.15s ease;
+
+  &.open { border-color: var(--border-accent, var(--border)); }
+}
+
+.ft-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 7px 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text-muted);
+  font-size: 11.5px;
+  font-family: 'JetBrains Mono', monospace;
+  transition: background 0.1s ease, color 0.1s ease;
+
+  &:hover {
+    background: var(--bg-hover, rgba(255,255,255,0.03));
+    color: var(--text);
+  }
+}
+
+.ft-chevron {
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-subtle);
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+
+  .open & { transform: rotate(90deg); }
+}
+
+.ft-lang {
+  font-size: 10px;
+  color: var(--accent);
+  background: rgba(var(--accent-rgb, 99,102,241), 0.12);
+  border-radius: 3px;
+  padding: 1px 5px;
+  flex-shrink: 0;
+  text-transform: lowercase;
+}
+
+.ft-path {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.ft-copy {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-subtle);
+  transition: border-color 0.1s, color 0.1s, background 0.1s;
+
+  &:hover { border-color: var(--border-accent, var(--border)); color: var(--text-muted); }
+  &.copied { color: #4ade80; border-color: rgba(74,222,128,0.4); }
+}
+
+.ft-body {
+  border-top: 1px solid var(--border);
+  overflow-x: auto;
+
+  pre {
+    margin: 0;
+    padding: 12px 14px;
+    font-size: 12px;
+    line-height: 1.55;
+    font-family: 'JetBrains Mono', monospace;
+    background: none;
+
+    code { background: none; padding: 0; }
+  }
+}
+
 .agent-pill-wrap {
   position: relative;
 }

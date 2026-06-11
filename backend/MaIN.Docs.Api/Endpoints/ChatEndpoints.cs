@@ -20,6 +20,18 @@ public static class ChatEndpoints
         app.MapPost("/api/chat/complete", HandleChat)
            .RequireRateLimiting("chat");
 
+        app.MapPost("/api/artifact/generate", async (
+            ArtifactGenerateRequest req,
+            ArtifactService artifactService,
+            CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(req.ArchiveName) || req.Files is not { Count: > 0 })
+                return Results.BadRequest("archiveName and at least one file are required.");
+            var files = req.Files.Select(f => (f.Path, f.Content)).ToList();
+            var url = await artifactService.CreateZipAndPresign(req.ArchiveName, files);
+            return Results.Ok(new { url, archiveName = req.ArchiveName });
+        }).RequireRateLimiting("chat");
+
         app.MapPost("/api/confirm/review", async () =>
         {
             if (!PrTools.HasPendingReview)
@@ -138,7 +150,8 @@ public static class ChatEndpoints
             capacityService.RecordTokenUsage(TotalTokenUsage(result));
             return Results.Ok(new ChatResponse(result.Content, result.ToolsUsed, result.EstimatedTokens, result.ArtifactUrl, result.ArtifactProposed, result.IssueProposed, result.IssueUrl, result.PlanProposed, result.ReviewProposed, result.CodeChangeProposed, result.PrProposed, result.PrUrl, result.ReviewPosted, result.DocsRead,
                 Capacity: capacityService.GetCapacityLevel(),
-                CapacityDetails: capacityService.GetStatus()));
+                CapacityDetails: capacityService.GetStatus(),
+                FilesProposed: result.FilesProposed));
         }
         catch (TimeoutException ex)
         {
