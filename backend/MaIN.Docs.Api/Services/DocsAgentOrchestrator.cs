@@ -1,3 +1,4 @@
+using System.Linq;
 using MaIN.Core;
 using MaIN.Core.Hub;
 using MaIN.Core.Hub.Contexts.Interfaces.AgentContext;
@@ -7,6 +8,7 @@ using MaIN.Domain.Configuration.BackendInferenceParams;
 using MaIN.Domain.Entities;
 using MaIN.Domain.Entities.Tools;
 using MaIN.Domain.Models;
+using MaIN.Domain.Models.Abstract;
 using MaIN.Docs.Api.Models;
 using Microsoft.Extensions.Options;
 using DomainModels = MaIN.Domain.Models.Models;
@@ -22,10 +24,14 @@ public class DocsAgentOrchestrator(
     IConfiguration configuration,
     ILogger<DocsAgentOrchestrator> logger)
 {
+    private static readonly string[] AgentIds = ["chatty", "code", "design", "review", "forge"];
+
     private readonly Dictionary<string, IAgentContextExecutor> _agents = new();
+    private readonly Dictionary<string, string> _agentModels = new();
+    private readonly Dictionary<string, int> _agentTier = new();
+    private readonly Dictionary<string, int> _agentOllamaKeyIndex = new();
     private readonly Dictionary<string, SemaphoreSlim> _locks = new();
     private readonly SemaphoreSlim _initLock = new(1, 1);
-    private int _initializedForTier = 0;
 
     public async Task InitializeAsync() => await InitializeForTierAsync(capacityService.GetCurrentTier());
 
@@ -42,20 +48,31 @@ public class DocsAgentOrchestrator(
 
         string modelChatty, modelCode, modelReview, modelDesign, modelForge;
 
+        var ollamaKeyIndex = tier == 3 ? capacityService.GetOllamaKeyIndex() : 0;
+
         if (tier == 3)
         {
             var ollamaModel = settings.Tier3.OllamaModel;
+            var ollamaKey = ollamaKeyIndex == 1 && !string.IsNullOrEmpty(settings.Tier3.OllamaKey2)
+                ? settings.Tier3.OllamaKey2
+                : settings.Tier3.OllamaKey;
             MaINBootstrapper.Initialize(configureSettings: cfg =>
             {
                 cfg.BackendType = BackendType.Ollama;
-                cfg.OllamaKey   = settings.Tier3.OllamaKey;
+                cfg.OllamaKey   = ollamaKey;
             });
+            // Custom Ollama model tags (e.g. "gemma4:31b-cloud") aren't in the built-in
+            // Models.* catalogue, so AgentContext.WithModel rejects them with
+            // AgentModelNotAvailableException unless registered first.
+            ModelRegistry.RegisterOrReplace(new GenericCloudModel(
+                ollamaModel, BackendType.Ollama, $"Ollama Cloud ({ollamaModel})", 128000u,
+                "Tier 3 fallback model via Ollama Cloud", null!));
             modelChatty = ollamaModel;
             modelCode   = ollamaModel;
             modelReview = ollamaModel;
             modelDesign = ollamaModel;
             modelForge  = ollamaModel;
-            logger.LogInformation("[Capacity] Initializing agents for Tier 3 (very-low) — Ollama model {Model}", ollamaModel);
+            logger.LogInformation("[Capacity] Initializing agents for Tier 3 (very-low) — Ollama model {Model} (key #{KeyIndex})", ollamaModel, ollamaKeyIndex + 1);
         }
         else if (tier == 2)
         {
@@ -110,6 +127,12 @@ public class DocsAgentOrchestrator(
 
         foreach (var def in defs)
         {
+            // Already running this agent on the target tier (and, for tier 3, the target
+            // Ollama key) — nothing to do. Re-checked every call so an agent that failed to
+            // switch tiers earlier gets retried.
+            if (AgentAligned(def.Id, tier, ollamaKeyIndex))
+                continue;
+
             try
             {
                 var builder = AIHub.Agent()
@@ -125,22 +148,37 @@ public class DocsAgentOrchestrator(
                 var ctx = await builder.CreateAsync();
 
                 _agents[def.Id] = ctx;
+                _agentModels[def.Id] = def.Model;
+                _agentTier[def.Id] = tier;
+                _agentOllamaKeyIndex[def.Id] = ollamaKeyIndex;
                 _locks.TryAdd(def.Id, new SemaphoreSlim(1, 1));
-                logger.LogInformation("Agent '{Id}' initialized with model {Model}", def.Id, def.Model);
+                logger.LogInformation("Agent '{Id}' initialized with model {Model} for tier {Tier}", def.Id, def.Model, tier);
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Failed to initialize agent '{Id}' — check API key for {Model}", def.Id, def.Model);
+                logger.LogError(ex,
+                    "[Capacity] Agent '{Id}' failed to switch to tier {Tier} (model {Model}) — still on tier {OldTier} (model {OldModel}); will retry on next request",
+                    def.Id, tier, def.Model,
+                    _agentTier.GetValueOrDefault(def.Id, -1),
+                    _agentModels.GetValueOrDefault(def.Id, "none"));
             }
         }
+    }
 
-        _initializedForTier = tier;
+    private bool AgentAligned(string id, int tier, int ollamaKeyIndex) =>
+        _agentTier.TryGetValue(id, out var t) && t == tier &&
+        (tier != 3 || _agentOllamaKeyIndex.GetValueOrDefault(id) == ollamaKeyIndex);
+
+    private bool AllAgentsOnTier(int tier)
+    {
+        var ollamaKeyIndex = tier == 3 ? capacityService.GetOllamaKeyIndex() : 0;
+        return AgentIds.All(id => AgentAligned(id, tier, ollamaKeyIndex));
     }
 
     private async Task EnsureCorrectTierAsync()
     {
         var currentTier = capacityService.GetCurrentTier();
-        if (currentTier == _initializedForTier) return;
+        if (AllAgentsOnTier(currentTier)) return;
 
         if (!await _initLock.WaitAsync(TimeSpan.FromSeconds(30)))
         {
@@ -151,7 +189,7 @@ public class DocsAgentOrchestrator(
         {
             // Re-check under lock — another thread may have already re-initialized
             currentTier = capacityService.GetCurrentTier();
-            if (currentTier != _initializedForTier)
+            if (!AllAgentsOnTier(currentTier))
                 await InitializeForTierAsync(currentTier);
         }
         finally
@@ -170,6 +208,8 @@ public class DocsAgentOrchestrator(
         if (!_agents.TryGetValue(agentId, out var ctx))
             throw new KeyNotFoundException($"Agent '{agentId}' is not available.");
 
+        var model = _agentModels.TryGetValue(agentId, out var m) ? m : "unknown";
+
         var sem = _locks[agentId];
 
         if (!await sem.WaitAsync(TimeSpan.FromSeconds(60), ct))
@@ -187,7 +227,12 @@ public class DocsAgentOrchestrator(
         string? prUrl = null;
 
         var docsRead = new List<string>();
-        MdTools.SetReadCapture(path => docsRead.Add(path));
+        var toolResultChars = 0;
+        MdTools.SetReadCapture((path, contentLength) =>
+        {
+            docsRead.Add(path);
+            toolResultChars += contentLength;
+        });
 
         if (agentId == "code")
         {
@@ -227,54 +272,33 @@ public class DocsAgentOrchestrator(
 
         try
         {
-            // The agent's internal chat is shared across all conversations/users for this
-            // agentId, and ProcessAsync(messages) APPENDS rather than replaces. Since
-            // `messages` already carries the full conversation history + new message from
-            // the frontend, restart the chat first so this turn's internal chat is exactly
-            // `messages` — no duplication of prior turns and no bleed from other conversations.
-            await ctx.RestartChat();
-
-            var completedInvocations = new List<ToolInvocation>();
-            Func<ToolInvocation, Task> callback = inv =>
+            async Task<AgentResult> Core(IAgentContextExecutor agentCtx)
             {
-                if (!inv.Done)
-                    logger.LogInformation("[{Agent}] Tool CALL  → {Tool} args={Args}", agentId, inv.ToolName, inv.Arguments);
-                else
-                    logger.LogInformation("[{Agent}] Tool DONE  ← {Tool}", agentId, inv.ToolName);
+                // The agent's internal chat is shared across all conversations/users for this
+                // agentId, and ProcessAsync(messages) APPENDS rather than replaces. Since
+                // `messages` already carries the full conversation history + new message from
+                // the frontend, restart the chat first so this turn's internal chat is exactly
+                // `messages` — no duplication of prior turns and no bleed from other conversations.
+                await agentCtx.RestartChat();
 
-                if (inv.Done) completedInvocations.Add(inv);
-                return Task.CompletedTask;
-            };
+                var completedInvocations = new List<ToolInvocation>();
+                Func<ToolInvocation, Task> callback = inv =>
+                {
+                    if (!inv.Done)
+                        logger.LogInformation("[{Agent}/{Model}] Tool CALL  → {Tool} args={Args}", agentId, model, inv.ToolName, inv.Arguments);
+                    else
+                        logger.LogInformation("[{Agent}/{Model}] Tool DONE  ← {Tool}", agentId, model, inv.ToolName);
 
-            var result = await ctx.ProcessAsync(messages, toolCallback: callback);
+                    if (inv.Done) completedInvocations.Add(inv);
+                    return Task.CompletedTask;
+                };
 
-            // When the model's final turn (after tool calls) emits no new text, Content ends up
-            // empty even though earlier turns produced commentary — that text only survives in
-            // the FullAnswer token. Fall back to it so the user sees what the model said.
-            var content = result.Message.Content;
-            if (string.IsNullOrWhiteSpace(content))
-            {
-                var fullAnswer = result.Message.Tokens
-                    .LastOrDefault(t => t.Type == TokenType.FullAnswer)?.Text;
-                if (!string.IsNullOrWhiteSpace(fullAnswer))
-                    content = fullAnswer;
-            }
+                var result = await agentCtx.ProcessAsync(messages, toolCallback: callback);
 
-            // Models occasionally stall after tool calls and return nothing at all — no text,
-            // no FullAnswer, no actionable output (no plan/code/proposal). Retry once.
-            var hasOutput = !string.IsNullOrWhiteSpace(content)
-                || artifactUrl is not null || artifactProposed is not null
-                || issueProposed is not null || planProposed is not null
-                || reviewProposed is not null || codeChangeProposed is not null
-                || prProposed is not null || prUrl is not null
-                || reviewPosted is not null;
-
-            if (!hasOutput)
-            {
-                logger.LogWarning("[{Agent}] Empty response with no actionable output — retrying once", agentId);
-                completedInvocations.Clear();
-                result = await ctx.ProcessAsync(messages, toolCallback: callback);
-                content = result.Message.Content;
+                // When the model's final turn (after tool calls) emits no new text, Content ends up
+                // empty even though earlier turns produced commentary — that text only survives in
+                // the FullAnswer token. Fall back to it so the user sees what the model said.
+                var content = result.Message.Content;
                 if (string.IsNullOrWhiteSpace(content))
                 {
                     var fullAnswer = result.Message.Tokens
@@ -282,28 +306,78 @@ public class DocsAgentOrchestrator(
                     if (!string.IsNullOrWhiteSpace(fullAnswer))
                         content = fullAnswer;
                 }
+
+                // Models occasionally stall after tool calls and return nothing at all — no text,
+                // no FullAnswer, no actionable output (no plan/code/proposal). Retry once.
+                var hasOutput = !string.IsNullOrWhiteSpace(content)
+                    || artifactUrl is not null || artifactProposed is not null
+                    || issueProposed is not null || planProposed is not null
+                    || reviewProposed is not null || codeChangeProposed is not null
+                    || prProposed is not null || prUrl is not null
+                    || reviewPosted is not null;
+
+                if (!hasOutput)
+                {
+                    logger.LogWarning("[{Agent}/{Model}] Empty response with no actionable output — retrying once", agentId, model);
+                    completedInvocations.Clear();
+                    result = await agentCtx.ProcessAsync(messages, toolCallback: callback);
+                    content = result.Message.Content;
+                    if (string.IsNullOrWhiteSpace(content))
+                    {
+                        var fullAnswer = result.Message.Tokens
+                            .LastOrDefault(t => t.Type == TokenType.FullAnswer)?.Text;
+                        if (!string.IsNullOrWhiteSpace(fullAnswer))
+                            content = fullAnswer;
+                    }
+                }
+
+                var tokenSummary = result.Message.Tokens
+                    .GroupBy(t => t.Type)
+                    .Select(g => $"{g.Key}:{g.Count()}(len={g.Sum(t => t.Text?.Length ?? 0)})")
+                    .ToList();
+                logger.LogInformation("[{Agent}/{Model}] Result content length={Len}, toolResultChars={ToolChars}, tokens=[{Tokens}]",
+                    agentId,
+                    model,
+                    result.Message.Content?.Length ?? 0,
+                    toolResultChars,
+                    string.Join(", ", tokenSummary));
+
+                var toolsUsed = completedInvocations
+                    .GroupBy(i => i.ToolName)
+                    .Select(g => new ToolUsage(g.Key, g.Count()))
+                    .ToList();
+
+                // Doc content returned by read_md_file is fed back into the model as context on the
+                // next turn, consuming real input tokens that content.Length alone doesn't capture.
+                var estimatedTokens = (int)Math.Round(((content?.Length ?? 0) + toolResultChars) / 4.0);
+
+                return new AgentResult(content ?? string.Empty, toolsUsed, estimatedTokens,
+                    artifactUrl, artifactProposed, issueProposed, issueUrl, planProposed,
+                    reviewProposed, codeChangeProposed, prProposed, prUrl, reviewPosted,
+                    DocsRead: docsRead.Distinct().ToList());
             }
 
-            var tokenSummary = result.Message.Tokens
-                .GroupBy(t => t.Type)
-                .Select(g => $"{g.Key}:{g.Count()}(len={g.Sum(t => t.Text?.Length ?? 0)})")
-                .ToList();
-            logger.LogInformation("[{Agent}] Result content length={Len}, tokens=[{Tokens}]",
-                agentId,
-                result.Message.Content?.Length ?? 0,
-                string.Join(", ", tokenSummary));
+            try
+            {
+                return await Core(ctx);
+            }
+            catch (Exception ex) when (capacityService.GetCurrentTier() == 3 && capacityService.MarkOllamaKeyExhausted())
+            {
+                // Ollama Cloud returned an error that looks like an exhausted/invalid key —
+                // transparently fail over to the secondary key and retry once, so the user
+                // doesn't notice the primary key ran out.
+                logger.LogWarning(ex, "[{Agent}/{Model}] Tier 3 request failed — switching to secondary Ollama key and retrying", agentId, model);
 
-            var toolsUsed = completedInvocations
-                .GroupBy(i => i.ToolName)
-                .Select(g => new ToolUsage(g.Key, g.Count()))
-                .ToList();
+                docsRead.Clear();
+                toolResultChars = 0;
+                artifactUrl = null; artifactProposed = null;
+                issueUrl = null; issueProposed = null; planProposed = null;
+                reviewProposed = null; reviewPosted = null; codeChangeProposed = null;
+                prProposed = null; prUrl = null;
 
-            var estimatedTokens = (int)Math.Round((content?.Length ?? 0) / 4.0);
-
-            return new AgentResult(content ?? string.Empty, toolsUsed, estimatedTokens,
-                artifactUrl, artifactProposed, issueProposed, issueUrl, planProposed,
-                reviewProposed, codeChangeProposed, prProposed, prUrl, reviewPosted,
-                DocsRead: docsRead.Distinct().ToList());
+                await InitializeForTierAsync(3);
+                return await Core(_agents[agentId]);
+            }
         }
         finally
         {
@@ -1205,6 +1279,10 @@ public class DocsAgentOrchestrator(
           `Message` and `MessageType` are internal server-side types NOT exported by the NuGet
           package. They cause CS0246/CS0103 at compile time. The consumer API is:
           agent.ProcessAsync(string text, tokenCallback: ...) — plain string, no Message object.
+        - If you use WithTools(...) (function calling), you MUST add BOTH
+          `using MaIN.Core.Hub.Utils;` (for ToolsConfigurationBuilder) AND
+          `using MaIN.Domain.Entities.Tools;` (for ToolsConfiguration/ToolDefinition).
+          Forgetting either causes CS0246: 'ToolsConfigurationBuilder' could not be found.
 
         BEHAVIOR:
         - Always read the docs before answering. "I think the API looks like..." is not your style.
@@ -1217,6 +1295,23 @@ public class DocsAgentOrchestrator(
           If the user seems ready for a full project, ask: "Want me to wrap this into a full project?
           I support console, ASP.NET Core API, and Avalonia desktop — which fits your use case?"
           Never pre-select console or any other kind without the user specifying it.
+
+        AI vs. PLAIN APP — decide before writing code:
+        Most full-project requests genuinely want an AI feature (chat assistant, content
+        generation, summarization, Q&A, classification, etc.) — for those, wire up MaIN.NET
+        as usual per PROJECT KINDS and CONFIG PROMPTING below. That's the common case.
+        But some requests describe a plain utility/tool with NO natural AI or chat feature
+        (a stopwatch, a unit converter, a todo list, a game, a CRUD form, a weather LOOKUP
+        that just shows current conditions for a city). For those:
+        - Do NOT add MaIN.NET, AIHub, an agent/chat UI, or a backend-config screen just
+          because this platform showcases MaIN.NET. Build the plain {kind} app that solves
+          what was asked — no AI/LLM in the loop, no MaIN.NET package reference at all.
+        - Skip CONFIG PROMPTING entirely for these — there's no API key to configure.
+        - Briefly note in your response that no AI backend is needed for this one.
+        If the request could go either way (e.g. "weather app" could mean a plain forecast
+        lookup OR "an assistant I can chat with about the weather"), default to the SIMPLER
+        plain interpretation unless the wording implies conversation/assistant behavior
+        ("chat", "assistant", "ask it about", "tell me"). When genuinely ambiguous, ask.
 
         PROJECT KINDS — three supported shapes for a complete solution:
         - console: CLI/chat app
@@ -1237,6 +1332,20 @@ public class DocsAgentOrchestrator(
         - api: startup config validation that throws a descriptive error naming the exact
           appsettings/env keys (see app-template-api.md)
         - desktop: a Settings tab backed by a JSON config file (see app-template-desktop.md)
+
+        FILE-AWARE FEATURES (PDF readers, document analyzers, "summarize this file" apps) —
+        when a generated artifact needs to read/analyze a file the user provides:
+        - NEVER use KnowledgeBuilder, WithKnowledge, .AddFile(), AnswerUseKnowledge(), or any
+          other RAG/"knowledge" API in a generated artifact. Their exact signatures (e.g.
+          AddFile(path, description, tags) takes a REQUIRED string[] tags parameter) are easy
+          to get wrong and there is no verified template for them — this is the #1 cause of
+          build failures (CS7036 etc.) in generated apps.
+        - Instead: extract the file's text yourself with plain .NET (File.ReadAllText for text
+          files; a small well-known package like PdfPig/UglyToad.PdfPig for PDFs), then pass
+          that text directly into agent.ProcessAsync($"...the user's request...\n\n{extractedText}").
+        - desktop: see app-template-desktop.md's "Reading files" section for the exact Avalonia
+          file-picker pattern (Avalonia.Platform.Storage: FilePickerFileType / FilePickerOpenOptions
+          — NOT a type called "FileTypeFilter").
 
         ARTIFACTS — MANDATORY ORDER, NO EXCEPTIONS:
         1. Write out EVERY file of the complete solution directly in your response TEXT first — minimum
@@ -1500,6 +1609,17 @@ public class DocsAgentOrchestrator(
              when the user doesn't ask for a UI or HTTP API), plus 1 more doc if needed for extra
              API signatures. If you call propose_artifact_generation, pass the matching
              kind ("api"/"console"/"desktop").
+             If the app needs to read/analyze a user-provided file (PDF, document, etc.), do NOT
+             use KnowledgeBuilder/WithKnowledge/.AddFile()/AnswerUseKnowledge() — extract the text
+             yourself with plain .NET and pass it into agent.ProcessAsync(...). See
+             app-template-desktop.md's "Reading files" section for the file-picker pattern.
+             If WithTools(...) is used, add `using MaIN.Core.Hub.Utils;` AND
+             `using MaIN.Domain.Entities.Tools;` (CS0246 otherwise).
+             AI vs. PLAIN APP: most requests want MaIN.NET wired in (use the template as-is).
+             But if the request is a plain utility with no natural AI/chat feature (converter,
+             game, todo list, plain data lookup), build it WITHOUT MaIN.NET/AIHub/config UI —
+             just the requested feature in the matching {kind} project shape. Note this in your
+             response. Default to the simpler plain interpretation when ambiguous.
           2. Write out EVERY solution file (minimum: .csproj + Program.cs) directly in your
              response, as separate fenced code blocks. Immediately before each block, write a
              line "File: <path>" so the user knows where it goes, e.g.:

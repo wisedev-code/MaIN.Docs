@@ -18,7 +18,15 @@ public record Tier2Settings(string GeminiKey = "", long TokenLimit = 1_000_000, 
     public Tier2Settings() : this("", 1_000_000, 120) { }
 }
 
-public record Tier3Settings(string OllamaKey = "", string OllamaModel = "gemma4:31b-cloud")
+public record Tier3Settings(string OllamaKey = "", string OllamaKey2 = "", string OllamaModel = "gemma4:31b-cloud")
 {
-    public Tier3Settings() : this("", "gemma4:31b-cloud") { }
+    public Tier3Settings() : this("", "", "gemma4:31b-cloud") { }
 }
+
+public record CapacityStatus(
+    int Tier,
+    string Level,
+    long TokensUsed,
+    long? TokenLimit,
+    long? TokensRemaining,
+    DateTime? ResetsAtUtc);

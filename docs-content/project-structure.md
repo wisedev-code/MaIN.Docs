@@ -275,6 +275,9 @@ KnowledgeBuilder.Instance
 ### ToolsConfigurationBuilder — function tools
 
 ```csharp
+using MaIN.Core.Hub.Utils;       // ToolsConfigurationBuilder
+using MaIN.Domain.Entities.Tools; // ToolsConfiguration, ToolDefinition
+
 new ToolsConfigurationBuilder()
     .AddTool<TArgs>(
         "tool_name",
@@ -285,6 +288,9 @@ new ToolsConfigurationBuilder()
     .WithMaxIterations(10)
     .Build()
 ```
+
+> **COMPILE RULE:** forgetting `using MaIN.Core.Hub.Utils;` causes
+> `CS0246: The type or namespace name 'ToolsConfigurationBuilder' could not be found`.
 
 ---
 

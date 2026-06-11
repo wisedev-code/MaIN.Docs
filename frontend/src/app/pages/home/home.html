@@ -171,6 +171,23 @@
                     </svg>
                     Start in terminal
                   </button>
+                  <span class="arc-info-wrap" tabindex="0" (click)="$event.preventDefault(); $event.stopPropagation()">
+                    <span class="arc-info-btn" aria-label="Prerequisites">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="16" x2="12" y2="11"/>
+                        <line x1="12" y1="8" x2="12" y2="8"/>
+                      </svg>
+                    </span>
+                    <div class="arc-info-popover">
+                      <div class="arc-info-popover-title">Prerequisites — {{ artifactPrerequisites(msg.artifactKind).label }}</div>
+                      <ul>
+                        @for (item of artifactPrerequisites(msg.artifactKind).items; track item) {
+                          <li>{{ item }}</li>
+                        }
+                      </ul>
+                    </div>
+                  </span>
                 </a>
               }
 

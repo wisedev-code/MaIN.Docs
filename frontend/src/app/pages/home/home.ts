@@ -1,7 +1,7 @@
 import { Component, ElementRef, OnDestroy, ViewChild, signal, computed, effect, NgZone } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { SlicePipe } from '@angular/common';
-import { ChatService } from '../../services/chat.service';
+import { ChatService, CapacityStatus } from '../../services/chat.service';
 import { AppStateService } from '../../services/app-state.service';
 import { ArtifactProposal, IssueProposal, PlanProposal, PrReviewProposal, CodeChangeProposal, PrProposal, ReviewPosted, ChatMessage, ToolUsage, AgentDefinition, AGENTS, Attachment } from '../../models/chat.models';
 
@@ -65,6 +65,8 @@ export class Home implements OnDestroy {
   showArtifactPrompt = signal(false);
   artifactProposal = signal<ArtifactProposal | null>(null);
   selectedArtifactKind = signal<'api' | 'console' | 'desktop'>('console');
+  /** Captured from selectedArtifactKind() at request time, since requestArtifact() resets the picker before the generation response arrives. */
+  private pendingArtifactKind: 'api' | 'console' | 'desktop' = 'console';
   showIssuePrompt = signal(false);
   issueProposal = signal<IssueProposal | null>(null);
   showReviewPrompt = signal(false);
@@ -96,6 +98,21 @@ export class Home implements OnDestroy {
     low:        { emoji: '◑', label: 'Reduced', cls: 'cap-low'     },
     'very-low': { emoji: '◌', label: 'Minimal', cls: 'cap-verylow' },
   }[this.capacity()]));
+
+  /** Debug aid: dump tier/token-budget info to the browser console on every chat response. */
+  private logCapacityDebug(details?: CapacityStatus): void {
+    if (!details) return;
+    const limit = details.tokenLimit ?? null;
+    const remaining = details.tokensRemaining ?? null;
+    const resetsAt = details.resetsAtUtc ? new Date(details.resetsAtUtc) : null;
+    console.log(
+      `[Capacity] tier ${details.tier} (${details.level}) — ${details.tokensUsed}` +
+      (limit !== null ? ` / ${limit} tokens used` : ' tokens used (no limit)') +
+      (remaining !== null ? `, ${remaining} remaining` : '') +
+      (resetsAt ? `, next tier resets at ${resetsAt.toLocaleTimeString()} (${resetsAt.toISOString()})` : ''),
+      details
+    );
+  }
 
   hasMessages = computed(() => this.messages().length > 0);
 
@@ -181,6 +198,7 @@ export class Home implements OnDestroy {
         const msgIndex = this.messages().length - 1;
         const response = await this.chatService.sendEnsembleDesign(rawText, history);
         if (response.capacity) this.capacity.set(response.capacity as any);
+        this.logCapacityDebug(response.capacityDetails);
         await this.revealWordByWord(response.content, msgIndex, response.toolsUsed, response.estimatedTokens,
           undefined, undefined, response.issueProposed, response.issueUrl, response.planProposed);
         this.ensembleContext.set({ question: rawText, designContent: response.content });
@@ -192,8 +210,9 @@ export class Home implements OnDestroy {
       } else {
         const response = await this.chatService.sendMessage(this.selectedAgent().id, apiText, history);
         if (response.capacity) this.capacity.set(response.capacity as any);
+        this.logCapacityDebug(response.capacityDetails);
         const msgIndex = this.messages().length - 1;
-        await this.revealWordByWord(response.content, msgIndex, response.toolsUsed, response.estimatedTokens, response.artifactUrl, response.artifactProposed, response.issueProposed, response.issueUrl, response.planProposed, response.reviewProposed, response.codeChangeProposed, response.prProposed, response.prUrl, response.reviewPosted, response.docsRead);
+        await this.revealWordByWord(response.content, msgIndex, response.toolsUsed, response.estimatedTokens, response.artifactUrl, response.artifactProposed, response.issueProposed, response.issueUrl, response.planProposed, response.reviewProposed, response.codeChangeProposed, response.prProposed, response.prUrl, response.reviewPosted, response.docsRead, response.artifactUrl ? this.pendingArtifactKind : undefined);
 
         if (response.artifactProposed && !response.artifactUrl) {
           this.artifactProposal.set(response.artifactProposed);
@@ -256,7 +275,8 @@ export class Home implements OnDestroy {
     prProposed?: PrProposal,
     prUrl?: string,
     reviewPosted?: ReviewPosted,
-    docsRead?: string[]
+    docsRead?: string[],
+    artifactKind?: 'api' | 'console' | 'desktop'
   ) {
     const CHUNK = 4;
     const DELAY = 32;
@@ -301,6 +321,7 @@ export class Home implements OnDestroy {
         prUrl,
         reviewPosted,
         docsRead,
+        artifactKind,
       };
       return updated;
     });
@@ -320,6 +341,7 @@ export class Home implements OnDestroy {
   requestArtifact() {
     const proposal = this.artifactProposal();
     const kind = this.selectedArtifactKind();
+    this.pendingArtifactKind = kind;
     this.dismissArtifactPrompt();
     const hint = proposal ? ` Name the archive ${proposal.archiveName}.` : '';
 
@@ -327,7 +349,7 @@ export class Home implements OnDestroy {
       const labels: Record<'api' | 'console' | 'desktop', string> = {
         api: 'ASP.NET Core API',
         console: 'Console App',
-        desktop: 'MAUI Desktop App',
+        desktop: 'Avalonia Desktop App',
       };
       this.inputText.set(
         `Please regenerate this as a ${labels[kind]} (read app-template-${kind}.md first), ` +
@@ -464,6 +486,7 @@ export class Home implements OnDestroy {
       try {
         const response = await this.chatService.sendEnsembleCode(ctx.question, ctx.designContent!);
         if (response.capacity) this.capacity.set(response.capacity as any);
+        this.logCapacityDebug(response.capacityDetails);
         this.ensembleContext.update(c => c ? { ...c, codeContent: response.content, branchName: response.branchName } : null);
         await this.revealWordByWord(response.content, msgIndex, response.toolsUsed, response.estimatedTokens,
           undefined, undefined, undefined, undefined, undefined, undefined,
@@ -494,6 +517,7 @@ export class Home implements OnDestroy {
         const response = await this.chatService.sendEnsembleReview(
           ctx.question, ctx.designContent!, ctx.codeContent!, ctx.branchName!);
         if (response.capacity) this.capacity.set(response.capacity as any);
+        this.logCapacityDebug(response.capacityDetails);
         await this.revealWordByWord(response.content, msgIndex, response.toolsUsed, response.estimatedTokens,
           undefined, undefined, undefined, undefined, undefined, response.reviewProposed,
           response.codeChangeProposed, response.prProposed, response.prUrl);
@@ -676,6 +700,47 @@ export class Home implements OnDestroy {
       return decodeURIComponent(path.split('/').pop() ?? 'artifact.zip');
     } catch {
       return 'artifact.zip';
+    }
+  }
+
+  /** Prerequisites shown in the artifact card's info popover, tailored by project kind. */
+  artifactPrerequisites(kind?: 'api' | 'console' | 'desktop'): { label: string; items: string[] } {
+    const sdk = '.NET 9 SDK (or later) — needed to build and run the project (`dotnet restore` + `dotnet run`).';
+
+    switch (kind) {
+      case 'api':
+        return {
+          label: 'ASP.NET Core API',
+          items: [
+            sdk,
+            'No extra workloads needed — runs with `dotnet run` and listens on the local port printed in the console.',
+          ],
+        };
+      case 'desktop':
+        return {
+          label: 'Desktop app (Avalonia)',
+          items: [
+            sdk,
+            'Cross-platform via Avalonia (Windows, macOS, Linux) — `dotnet run` works with no extra GUI workload.',
+            'Running the built executable directly without the SDK additionally requires the .NET Desktop Runtime (or the plain .NET Runtime) matching the project\'s target version.',
+          ],
+        };
+      case 'console':
+        return {
+          label: 'Console app',
+          items: [
+            sdk,
+            'Run it from a terminal — it prompts for backend config (API key, model, etc.) on first launch.',
+          ],
+        };
+      default:
+        return {
+          label: 'This project',
+          items: [
+            sdk,
+            'Desktop apps additionally need the .NET Desktop Runtime (or .NET Runtime) if run without the SDK.',
+          ],
+        };
     }
   }
 

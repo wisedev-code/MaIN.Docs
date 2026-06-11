@@ -414,6 +414,57 @@ public partial class MainWindow : Window
   and `Avalonia.Themes.Fluent` always resolve to the same major version at restore
   time. Mixing major versions causes runtime crashes.
 
+## Reading files (PDFs, documents, etc.) — do NOT use Knowledge/RAG APIs
+
+If the app needs to read, summarize, or answer questions about a file the user
+picks (PDF, text, etc.), do **not** reach for `KnowledgeBuilder`, `WithKnowledge`,
+`.AddFile()`, `AnswerUseKnowledge()`, or any other RAG/"knowledge" API. Their
+exact signatures (e.g. `AddFile(path, description, tags)` takes a *required*
+`string[] tags` parameter) are easy to get wrong, and there is no verified
+template for them — using them is the #1 cause of build failures (CS7036 etc.)
+in generated desktop apps.
+
+Instead:
+1. Extract the file's text yourself with plain .NET — `File.ReadAllText` for
+   text files, or a small well-known package like `PdfPig`/`UglyToad.PdfPig`
+   for PDFs.
+2. Pass that text directly into `agent.ProcessAsync($"...the user's
+   request...\n\n{extractedText}", tokenCallback: ...)`.
+
+This keeps the whole pipeline to APIs that are guaranteed to compile: plain
+.NET file I/O + the same `agent.ProcessAsync` overload already used in
+`OnSend` above.
+
+### File pickers (Avalonia)
+
+To let the user choose a file, use Avalonia's `StorageProvider` — and don't
+forget the `using`:
+
+```csharp
+using Avalonia.Platform.Storage;
+```
+
+```csharp
+var files = await TopLevel.GetTopLevel(this)!.StorageProvider.OpenFilePickerAsync(
+    new FilePickerOpenOptions
+    {
+        Title = "Select a file",
+        AllowMultiple = false,
+        FileTypeFilter = [ new FilePickerFileType("PDF files") { Patterns = ["*.pdf"] } ]
+    });
+
+if (files.Count > 0)
+{
+    var path = files[0].Path.LocalPath;
+    // ... extract text from `path`, then call agent.ProcessAsync(...)
+}
+```
+
+`FilePickerFileType` and `FilePickerOpenOptions` (with its `FileTypeFilter`
+property) live in `Avalonia.Platform.Storage`. There is no standalone type
+called `FileTypeFilter` — using that name as a type causes
+`CS0246: cannot find type or namespace 'FileTypeFilter'`.
+
 ## Customizing
 
 - **Non-chat UI**: replace the Chat `TabItem` content with whatever controls suit
@@ -421,8 +472,8 @@ public partial class MainWindow : Window
   `Dispatcher.UIThread.Post` threading pattern apply to any Avalonia window.
 - **Additional windows**: create `Window` subclasses and open them from
   `MainWindow` with `new OtherWindow().Show()`.
-- **Tools, RAG, multi-step pipelines**: see `agents.md` (`WithTools`,
-  `WithKnowledge`, `WithSteps`) — the same `AIHub.Agent()` wiring works inside
-  any async event handler.
+- **Tools, multi-step pipelines**: see `agents.md` (`WithTools`, `WithSteps`)
+  — the same `AIHub.Agent()` wiring works inside any async event handler.
+  Avoid `WithKnowledge`/RAG in this template — see "Reading files" above.
 - **More backends**: add `ComboBoxItem` entries in the Settings tab and a matching
   `switch` branch in `MaINSetup.EnsureInitialized()`.

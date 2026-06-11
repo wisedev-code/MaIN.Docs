@@ -7,11 +7,19 @@ const API_URL = '/api/chat/complete';
 const CONFIRM_REVIEW_URL = '/api/confirm/review';
 const CONFIRM_CODE_CHANGE_URL = '/api/confirm/code-change';
 const CONFIRM_PR_URL = '/api/confirm/pr';
-const API_KEY = (window as any).__env?.apiKey ?? 'change-me-before-deploy';
 
 const ENSEMBLE_DESIGN_URL = '/api/ensemble/design';
 const ENSEMBLE_CODE_URL = '/api/ensemble/code';
 const ENSEMBLE_REVIEW_URL = '/api/ensemble/review';
+
+export interface CapacityStatus {
+  tier: number;
+  level: string;
+  tokensUsed: number;
+  tokenLimit?: number | null;
+  tokensRemaining?: number | null;
+  resetsAtUtc?: string | null;
+}
 
 interface ChatApiResponse {
   text: string;
@@ -29,6 +37,7 @@ interface ChatApiResponse {
   reviewPosted?: ReviewPosted;
   docsRead?: string[];
   capacity?: string;
+  capacityDetails?: CapacityStatus;
 }
 
 interface EnsembleCodeApiResponse {
@@ -40,6 +49,7 @@ interface EnsembleCodeApiResponse {
   codeChangeProposed?: CodeChangeProposal;
   prProposed?: PrProposal;
   capacity?: string;
+  capacityDetails?: CapacityStatus;
 }
 
 export interface EnsembleCodeResponse {
@@ -51,6 +61,7 @@ export interface EnsembleCodeResponse {
   codeChangeProposed?: CodeChangeProposal;
   prProposed?: PrProposal;
   capacity?: string;
+  capacityDetails?: CapacityStatus;
 }
 
 export interface AgentResponse {
@@ -69,6 +80,7 @@ export interface AgentResponse {
   reviewPosted?: ReviewPosted;
   docsRead?: string[];
   capacity?: string;
+  capacityDetails?: CapacityStatus;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -93,21 +105,18 @@ export class ChatService {
       ...(docsAlreadyRead.length > 0 ? { docsAlreadyRead } : {}),
     };
 
-    const headers = new HttpHeaders({
-      'Content-Type': 'application/json',
-      'X-Api-Key': API_KEY,
-    });
+    const headers = new HttpHeaders({ 'Content-Type': 'application/json' });
 
     const response = await firstValueFrom(
       this.http.post<ChatApiResponse>(API_URL, body, { headers })
     );
 
     this.abortController = null;
-    return { content: response.text, toolsUsed: response.toolsUsed, estimatedTokens: response.estimatedTokens, artifactUrl: response.artifactUrl, artifactProposed: response.artifactProposed, issueProposed: response.issueProposed, issueUrl: response.issueUrl, planProposed: response.planProposed, reviewProposed: response.reviewProposed, codeChangeProposed: response.codeChangeProposed, prProposed: response.prProposed, prUrl: response.prUrl, reviewPosted: response.reviewPosted, docsRead: response.docsRead, capacity: response.capacity };
+    return { content: response.text, toolsUsed: response.toolsUsed, estimatedTokens: response.estimatedTokens, artifactUrl: response.artifactUrl, artifactProposed: response.artifactProposed, issueProposed: response.issueProposed, issueUrl: response.issueUrl, planProposed: response.planProposed, reviewProposed: response.reviewProposed, codeChangeProposed: response.codeChangeProposed, prProposed: response.prProposed, prUrl: response.prUrl, reviewPosted: response.reviewPosted, docsRead: response.docsRead, capacity: response.capacity, capacityDetails: response.capacityDetails };
   }
 
   private get authHeaders(): HttpHeaders {
-    return new HttpHeaders({ 'Content-Type': 'application/json', 'X-Api-Key': API_KEY });
+    return new HttpHeaders({ 'Content-Type': 'application/json' });
   }
 
   async confirmReview(): Promise<string> {
@@ -131,7 +140,7 @@ export class ChatService {
     );
     return { content: response.text, toolsUsed: response.toolsUsed, estimatedTokens: response.estimatedTokens,
       planProposed: response.planProposed, issueProposed: response.issueProposed, issueUrl: response.issueUrl,
-      capacity: response.capacity };
+      capacity: response.capacity, capacityDetails: response.capacityDetails };
   }
 
   async sendEnsembleCode(originalMessage: string, designContent: string): Promise<EnsembleCodeResponse> {
@@ -142,7 +151,7 @@ export class ChatService {
     return { content: response.text, toolsUsed: response.toolsUsed, estimatedTokens: response.estimatedTokens,
       branchName: response.branchName, filesChanged: response.filesChanged,
       codeChangeProposed: response.codeChangeProposed, prProposed: response.prProposed,
-      capacity: response.capacity };
+      capacity: response.capacity, capacityDetails: response.capacityDetails };
   }
 
   async sendEnsembleReview(originalMessage: string, designContent: string, codeContent: string, branchName: string): Promise<AgentResponse> {
@@ -152,6 +161,6 @@ export class ChatService {
     );
     return { content: response.text, toolsUsed: response.toolsUsed, estimatedTokens: response.estimatedTokens,
       reviewProposed: response.reviewProposed, codeChangeProposed: response.codeChangeProposed,
-      prProposed: response.prProposed, prUrl: response.prUrl, capacity: response.capacity };
+      prProposed: response.prProposed, prUrl: response.prUrl, capacity: response.capacity, capacityDetails: response.capacityDetails };
   }
 }

@@ -169,6 +169,16 @@ Attaches function-calling tools that the model may invoke during completion.
 |---|---|---|
 | `toolsConfiguration` | `ToolsConfiguration` | Built via `ToolsConfigurationBuilder`. Use `.AddTool(name, description, execute)` or the generic `.AddTool<TArgs>(...)` overload, then `.WithToolChoice("auto")` and `.Build()`. |
 
+> **COMPILE RULE — required `using` statements:**
+> `ToolsConfigurationBuilder` lives in `MaIN.Core.Hub.Utils`; `ToolsConfiguration` (and
+> `ToolDefinition`) live in `MaIN.Domain.Entities.Tools`. Add both:
+> ```csharp
+> using MaIN.Core.Hub.Utils;
+> using MaIN.Domain.Entities.Tools;
+> ```
+> Omitting these causes `CS0246: The type or namespace name 'ToolsConfigurationBuilder'
+> could not be found`.
+
 ---
 
 ### `WithMemoryParams`

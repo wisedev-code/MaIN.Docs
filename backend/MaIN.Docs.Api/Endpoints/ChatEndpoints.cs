@@ -8,6 +8,13 @@ namespace MaIN.Docs.Api.Endpoints;
 
 public static class ChatEndpoints
 {
+    // Matches the frontend's per-call tool token estimate (toolTokenEstimate in home.ts) so the
+    // capacity tracker's running total lines up with the "~X tool tokens · ~Y response" badges shown in the UI.
+    private const int ToolCallTokenEstimate = 540;
+
+    private static int TotalTokenUsage(AgentResult result) =>
+        result.EstimatedTokens + result.ToolsUsed.Sum(t => t.Calls) * ToolCallTokenEstimate;
+
     public static void MapChatEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapPost("/api/chat/complete", HandleChat)
@@ -19,7 +26,7 @@ public static class ChatEndpoints
                 return Results.BadRequest("No pending review to submit.");
             var url = await PrTools.SubmitPendingReview();
             return Results.Ok(new { url });
-        });
+        }).RequireRateLimiting("chat");
 
         app.MapPost("/api/confirm/code-change", async () =>
         {
@@ -27,7 +34,7 @@ public static class ChatEndpoints
                 return Results.BadRequest("No pending code change to push.");
             var pushed = await PrTools.ExecuteAllPendingCodeChanges();
             return Results.Ok(new { pushed = true, filesChanged = pushed.Count });
-        });
+        }).RequireRateLimiting("chat");
 
         app.MapPost("/api/confirm/pr", async () =>
         {
@@ -35,7 +42,7 @@ public static class ChatEndpoints
                 return Results.BadRequest("No pending pull request to create.");
             var url = await PrTools.ExecutePendingPr();
             return Results.Ok(new { url });
-        });
+        }).RequireRateLimiting("chat");
 
         app.MapPost("/api/ensemble/design", async (
             EnsembleDesignRequest req,
@@ -50,10 +57,11 @@ public static class ChatEndpoints
             try
             {
                 var result = await orchestrator.ProcessEnsembleDesignAsync(messages, ct);
-                capacityService.RecordTokenUsage(result.EstimatedTokens);
+                capacityService.RecordTokenUsage(TotalTokenUsage(result));
                 return Results.Ok(new ChatResponse(result.Content, result.ToolsUsed, result.EstimatedTokens,
                     null, null, result.IssueProposed, result.IssueUrl, result.PlanProposed,
-                    Capacity: capacityService.GetCapacityLevel()));
+                    Capacity: capacityService.GetCapacityLevel(),
+                    CapacityDetails: capacityService.GetStatus()));
             }
             catch (TimeoutException ex)
             {
@@ -71,11 +79,11 @@ public static class ChatEndpoints
             {
                 var (result, branchName, filesChanged) = await orchestrator.ProcessEnsembleCodeAsync(
                     req.OriginalMessage, req.DesignContent, ct);
-                capacityService.RecordTokenUsage(result.EstimatedTokens);
+                capacityService.RecordTokenUsage(TotalTokenUsage(result));
                 return Results.Ok(new EnsembleCodeResponse(
                     result.Content, result.ToolsUsed, result.EstimatedTokens,
                     branchName, filesChanged, result.CodeChangeProposed, result.PrProposed,
-                    capacityService.GetCapacityLevel()));
+                    capacityService.GetCapacityLevel(), capacityService.GetStatus()));
             }
             catch (TimeoutException ex)
             {
@@ -93,12 +101,13 @@ public static class ChatEndpoints
             {
                 var result = await orchestrator.ProcessEnsembleReviewAsync(
                     req.OriginalMessage, req.DesignContent, req.CodeContent, req.BranchName, ct);
-                capacityService.RecordTokenUsage(result.EstimatedTokens);
+                capacityService.RecordTokenUsage(TotalTokenUsage(result));
                 return Results.Ok(new ChatResponse(
                     result.Content, result.ToolsUsed, result.EstimatedTokens,
                     null, null, null, null, null,
                     result.ReviewProposed, result.CodeChangeProposed, result.PrProposed, result.PrUrl,
-                    Capacity: capacityService.GetCapacityLevel()));
+                    Capacity: capacityService.GetCapacityLevel(),
+                    CapacityDetails: capacityService.GetStatus()));
             }
             catch (TimeoutException ex)
             {
@@ -126,9 +135,10 @@ public static class ChatEndpoints
         {
             var messages = BuildMessages(request);
             var result = await orchestrator.ProcessAsync(request.AgentId, messages, ct);
-            capacityService.RecordTokenUsage(result.EstimatedTokens);
+            capacityService.RecordTokenUsage(TotalTokenUsage(result));
             return Results.Ok(new ChatResponse(result.Content, result.ToolsUsed, result.EstimatedTokens, result.ArtifactUrl, result.ArtifactProposed, result.IssueProposed, result.IssueUrl, result.PlanProposed, result.ReviewProposed, result.CodeChangeProposed, result.PrProposed, result.PrUrl, result.ReviewPosted, result.DocsRead,
-                Capacity: capacityService.GetCapacityLevel()));
+                Capacity: capacityService.GetCapacityLevel(),
+                CapacityDetails: capacityService.GetStatus()));
         }
         catch (TimeoutException ex)
         {

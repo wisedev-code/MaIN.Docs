@@ -1,3 +1,3 @@
 window.__env = {
-  apiKey: '${API_KEY}'
+  turnstileSiteKey: '${TURNSTILE_SITE_KEY}'
 };

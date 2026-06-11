@@ -72,6 +72,7 @@ export interface ChatMessage {
   toolsUsed?: ToolUsage[];
   estimatedTokens?: number;
   artifactUrl?: string;
+  artifactKind?: 'api' | 'console' | 'desktop';
   artifactProposed?: ArtifactProposal;
   issueProposed?: IssueProposal;
   issueUrl?: string;

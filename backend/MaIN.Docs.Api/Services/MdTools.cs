@@ -7,7 +7,7 @@ public static class MdTools
 {
     private static string _directory = "";
     private static ILogger _logger = NullLogger.Instance;
-    private static Action<string>? _readCapture;
+    private static Action<string, int>? _readCapture;
 
     public static void Initialize(string directory, ILogger logger)
     {
@@ -15,7 +15,8 @@ public static class MdTools
         _logger    = logger;
     }
 
-    public static void SetReadCapture(Action<string>? capture) => _readCapture = capture;
+    // Invoked with (path, contentLength) so the orchestrator can fold tool-result size into the token estimate.
+    public static void SetReadCapture(Action<string, int>? capture) => _readCapture = capture;
 
     public record ListDocsArgs;
     public record SearchArgs(string Query);
@@ -98,7 +99,7 @@ public static class MdTools
 
         var content = await File.ReadAllTextAsync(args.Path);
         _logger.LogInformation("[tool:read_md_file] Read {Bytes} chars from {File}", content.Length, Path.GetFileName(args.Path));
-        _readCapture?.Invoke(args.Path);
+        _readCapture?.Invoke(args.Path, content.Length);
 
         return new
         {

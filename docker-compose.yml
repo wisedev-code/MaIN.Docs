@@ -4,14 +4,18 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     environment:
-      - ApiKey=${API_KEY}
+      - SessionSecret=${SESSION_SECRET}
+      - Turnstile__SecretKey=${TURNSTILE_SECRET_KEY}
       - DocsContentPath=/docs-content
       - AllowedOrigins__0=http://localhost:8070
+      - AllowedOrigins__1=${ALLOWED_ORIGIN_AZURE_STATIC:-}
+      - AllowedOrigins__2=${ALLOWED_ORIGIN_CUSTOM_DOMAIN:-}
       - Logging__LogLevel__Default=Information
       - Logging__LogLevel__Microsoft.AspNetCore=Warning
       - MaIN__GeminiKey=${GEMINI_KEY}
       - Capacity__Tier2__GeminiKey=${CAPACITY_TIER2_GEMINI_KEY}
       - Capacity__Tier3__OllamaKey=${CAPACITY_TIER3_OLLAMA_KEY}
+      - Capacity__Tier3__OllamaKey2=${CAPACITY_TIER3_OLLAMA_KEY_2}
       - Capacity__Tier3__OllamaModel=${CAPACITY_TIER3_OLLAMA_MODEL:-gemma4:31b-cloud}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
@@ -29,7 +33,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     environment:
-      - API_KEY=${API_KEY}
+      - TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY}
     ports:
       - "8070:80"
     depends_on:
