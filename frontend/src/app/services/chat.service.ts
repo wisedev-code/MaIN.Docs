@@ -2,15 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { ArtifactProposal, IssueProposal, PlanProposal, PrReviewProposal, CodeChangeProposal, PrProposal, ReviewPosted, ChatMessage, ToolUsage, ProposedFile } from '../models/chat.models';
-
-// Empty (docker-compose, nginx proxies /api/) or the unsubstituted `ng serve`
-// placeholder both resolve to relative URLs. Only set to an absolute origin
-// when the SPA is hosted separately from the backend (e.g. Azure Static Web Apps).
-const API_BASE = (() => {
-  const raw = (window as any).__env?.apiBaseUrl;
-  if (!raw || raw.startsWith('${')) return '';
-  return raw.replace(/\/+$/, '');
-})();
+import { API_BASE } from './api-base';
 
 const API_URL = `${API_BASE}/api/chat/complete`;
 const CONFIRM_REVIEW_URL = `${API_BASE}/api/confirm/review`;

@@ -1,8 +1,9 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
+import { API_BASE } from './api-base';
 
-const SESSION_URL = '/api/session';
+const SESSION_URL = `${API_BASE}/api/session`;
 const TURNSTILE_SCRIPT_URL = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
 const TOKEN_EXPIRY_BUFFER_MS = 60_000;
 const DEV_TURNSTILE_TOKEN = 'dev-mode';
