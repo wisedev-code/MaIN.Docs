@@ -3,15 +3,24 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { ArtifactProposal, IssueProposal, PlanProposal, PrReviewProposal, CodeChangeProposal, PrProposal, ReviewPosted, ChatMessage, ToolUsage, ProposedFile } from '../models/chat.models';
 
-const API_URL = '/api/chat/complete';
-const CONFIRM_REVIEW_URL = '/api/confirm/review';
-const CONFIRM_CODE_CHANGE_URL = '/api/confirm/code-change';
-const CONFIRM_PR_URL = '/api/confirm/pr';
+// Empty (docker-compose, nginx proxies /api/) or the unsubstituted `ng serve`
+// placeholder both resolve to relative URLs. Only set to an absolute origin
+// when the SPA is hosted separately from the backend (e.g. Azure Static Web Apps).
+const API_BASE = (() => {
+  const raw = (window as any).__env?.apiBaseUrl;
+  if (!raw || raw.startsWith('${')) return '';
+  return raw.replace(/\/+$/, '');
+})();
 
-const ENSEMBLE_DESIGN_URL = '/api/ensemble/design';
-const ENSEMBLE_CODE_URL = '/api/ensemble/code';
-const ENSEMBLE_REVIEW_URL = '/api/ensemble/review';
-const ARTIFACT_GENERATE_URL = '/api/artifact/generate';
+const API_URL = `${API_BASE}/api/chat/complete`;
+const CONFIRM_REVIEW_URL = `${API_BASE}/api/confirm/review`;
+const CONFIRM_CODE_CHANGE_URL = `${API_BASE}/api/confirm/code-change`;
+const CONFIRM_PR_URL = `${API_BASE}/api/confirm/pr`;
+
+const ENSEMBLE_DESIGN_URL = `${API_BASE}/api/ensemble/design`;
+const ENSEMBLE_CODE_URL = `${API_BASE}/api/ensemble/code`;
+const ENSEMBLE_REVIEW_URL = `${API_BASE}/api/ensemble/review`;
+const ARTIFACT_GENERATE_URL = `${API_BASE}/api/artifact/generate`;
 
 export interface CapacityStatus {
   tier: number;

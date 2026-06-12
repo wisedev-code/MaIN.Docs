@@ -3,10 +3,14 @@ import { inject } from '@angular/core';
 import { catchError, from, switchMap, throwError } from 'rxjs';
 import { SessionService } from '../services/session.service';
 
-const PROTECTED_PREFIXES = ['/api/chat', '/api/confirm', '/api/ensemble'];
+const PROTECTED_PREFIXES = ['/api/chat', '/api/confirm', '/api/ensemble', '/api/artifact'];
 
 export const sessionInterceptor: HttpInterceptorFn = (req, next) => {
-  if (!PROTECTED_PREFIXES.some(prefix => req.url.startsWith(prefix))) {
+  // req.url may be relative ('/api/chat/complete') or absolute
+  // (https://maindoc-backend.../api/chat/complete) when the SPA is hosted
+  // separately from the backend, so match on the pathname only.
+  const path = new URL(req.url, window.location.origin).pathname;
+  if (!PROTECTED_PREFIXES.some(prefix => path.startsWith(prefix))) {
     return next(req);
   }
 
