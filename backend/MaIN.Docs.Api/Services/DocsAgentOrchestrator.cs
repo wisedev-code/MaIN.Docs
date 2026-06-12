@@ -11,7 +11,6 @@ using MaIN.Domain.Models;
 using MaIN.Domain.Models.Abstract;
 using MaIN.Docs.Api.Models;
 using Microsoft.Extensions.Options;
-using DomainModels = MaIN.Domain.Models.Models;
 
 namespace MaIN.Docs.Api.Services;
 
@@ -21,6 +20,7 @@ public class DocsAgentOrchestrator(
     GitHubService githubService,
     CapacityService capacityService,
     IOptions<CapacitySettings> capacityOptions,
+    IOptions<ModelSettings> modelOptions,
     IConfiguration configuration,
     ILogger<DocsAgentOrchestrator> logger)
 {
@@ -44,6 +44,7 @@ public class DocsAgentOrchestrator(
         PrTools.Init(githubService);
 
         var settings = capacityOptions.Value;
+        var models = modelOptions.Value;
         var geminiKey1 = configuration["MaIN:GeminiKey"] ?? "";
 
         string modelChatty, modelCode, modelReview, modelDesign, modelForge;
@@ -81,11 +82,11 @@ public class DocsAgentOrchestrator(
                 cfg.BackendType = BackendType.Gemini;
                 cfg.GeminiKey   = settings.Tier2.GeminiKey;
             });
-            modelChatty = DomainModels.Gemini.Gemini3_1FlashLite;
-            modelCode   = DomainModels.Gemini.Gemini3_1FlashLite;
-            modelReview = DomainModels.Gemini.Gemini3_1FlashLite;
-            modelDesign = DomainModels.Gemini.Gemini3_1FlashLite;
-            modelForge  = DomainModels.Gemini.Gemini3_1FlashLite;
+            modelChatty = models.Tier2.Chatty;
+            modelCode   = models.Tier2.Code;
+            modelReview = models.Tier2.Review;
+            modelDesign = models.Tier2.Design;
+            modelForge  = models.Tier2.Forge;
             logger.LogInformation("[Capacity] Initializing agents for Tier 2 (low) — Flash Lite on secondary key");
         }
         else
@@ -95,11 +96,11 @@ public class DocsAgentOrchestrator(
                 cfg.BackendType = BackendType.Gemini;
                 cfg.GeminiKey   = geminiKey1;
             });
-            modelChatty = DomainModels.Gemini.Gemini3_1FlashLite;
-            modelCode   = DomainModels.Gemini.Gemini3_5Flash;
-            modelReview = DomainModels.Gemini.Gemini3_5Flash;
-            modelDesign = DomainModels.Gemini.Gemini3_1ProPreview;
-            modelForge  = DomainModels.Gemini.Gemini3_1ProPreview;
+            modelChatty = models.Tier1.Chatty;
+            modelCode   = models.Tier1.Code;
+            modelReview = models.Tier1.Review;
+            modelDesign = models.Tier1.Design;
+            modelForge  = models.Tier1.Forge;
             logger.LogInformation("[Capacity] Initializing agents for Tier 1 (normal) — standard Gemini stack");
         }
 
@@ -108,7 +109,13 @@ public class DocsAgentOrchestrator(
         // output. With no MaxTokens set, that budget can be exhausted entirely by reasoning
         // across multi-step tool-call turns, leaving both Content and the FullAnswer token
         // empty. Give every Gemini-backed agent more headroom.
-        var geminiParams = tier < 3 ? new GeminiInferenceParams { MaxTokens = 16384 } : null;
+        var geminiAdditionalParams = new Dictionary<string, object>();
+        if (!string.IsNullOrWhiteSpace(settings.ReasoningEffort))
+            geminiAdditionalParams["reasoning_effort"] = settings.ReasoningEffort;
+
+        var geminiParams = tier < 3
+            ? new GeminiInferenceParams { MaxTokens = 16384, AdditionalParams = geminiAdditionalParams }
+            : null;
 
         var chattyTools  = BuildChattyTools(docsPath);
         var codeTools    = BuildCodeTools(docsPath);
@@ -234,6 +241,8 @@ public class DocsAgentOrchestrator(
             docsRead.Add(path);
             toolResultChars += contentLength;
         });
+        var readPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        MdTools.SetReadDedup(readPaths);
 
         if (agentId == "code")
         {
@@ -373,6 +382,7 @@ public class DocsAgentOrchestrator(
 
                 docsRead.Clear();
                 toolResultChars = 0;
+                readPaths.Clear();
                 artifactUrl = null; artifactProposed = null;
                 issueUrl = null; issueProposed = null; planProposed = null;
                 reviewProposed = null; reviewPosted = null; codeChangeProposed = null;
@@ -397,6 +407,7 @@ public class DocsAgentOrchestrator(
             PrTools.SetPrCapture(null);
             PrTools.SetPrUrlCapture(null);
             MdTools.SetReadCapture(null);
+            MdTools.SetReadDedup(null);
             sem.Release();
         }
     }
@@ -865,7 +876,7 @@ public class DocsAgentOrchestrator(
                     required = new[] { "archiveName", "description", "kind" }
                 },
                 ArtifactTools.Propose)
-            .WithMaxIterations(10)
+            .WithMaxIterations(18)
             .WithToolChoice("auto")
             .Build();
 
@@ -1243,7 +1254,10 @@ public class DocsAgentOrchestrator(
         - Console bootstrap: MaINBootstrapper.Initialize(); ASP.NET: services.AddMaIN(configuration)
         - MCP has 3 integration styles: direct prompt, agent pipeline step, RAG knowledge source
 
-        TOOL ECONOMY: You have 10 tool slots. list_docs (1) → read app-template doc + maybe 1 more (2) → show_file × N files (N) → propose_artifact_generation (1) = done. Never read the same file twice.
+        TOOL ECONOMY: You have 18 tool slots. list_docs (1) → read app-template doc + maybe 1 more (2) → show_file × N files (N) → propose_artifact_generation (1) = done.
+        NEVER call read_md_file twice for the same path — its content is already in an earlier tool
+        result in this conversation, re-requesting it just wastes your tool budget and gets you closer
+        to running out before propose_artifact_generation.
 
         TOOLS — use them every time, no improvising:
         1. list_docs — discover what files exist
@@ -1314,6 +1328,18 @@ public class DocsAgentOrchestrator(
         switch kinds (e.g. via the artifact picker), re-read the new template doc and rewrite the
         solution (showing the new files per the ARTIFACTS rules) before calling
         propose_artifact_generation / generate_artifact again.
+
+        DESKTOP VISUAL QUALITY — when kind is "desktop", app-template-desktop.md's "Modern
+        visual style — gradients & glass panels" and "Common AVLN2000 / XAML compile errors"
+        sections are part of the SAME read_md_file call as the rest of the template — apply
+        both. Pick an accent palette and layout shape that fit THIS app's topic (a weather
+        app, a recipe app, a budgeting app must not all look like the same blue chat window):
+        use a gradient header/hero, "glass" Border cards, and an accent color on primary
+        buttons, and shape the main layout (dashboard grid, list+detail, single tool view —
+        not always Chat+Settings tabs) around the app's actual feature. Before calling
+        show_file on any .axaml file, check every Padding/CornerRadius/BoxShadow/Spacing
+        usage against the AVLN2000 pitfalls section — wrap panels in a Border rather than
+        setting those directly on StackPanel/Grid/WrapPanel/DockPanel.
 
         CONFIG PROMPTING — every generated app MUST let the user supply backend config (model
         path/Ollama URL for local, API keys + model names for cloud) at runtime, never hardcoded:

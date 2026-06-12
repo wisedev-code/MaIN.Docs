@@ -8,6 +8,7 @@ public static class MdTools
     private static string _directory = "";
     private static ILogger _logger = NullLogger.Instance;
     private static Action<string, int>? _readCapture;
+    private static HashSet<string>? _readPaths;
 
     public static void Initialize(string directory, ILogger logger)
     {
@@ -17,6 +18,10 @@ public static class MdTools
 
     // Invoked with (path, contentLength) so the orchestrator can fold tool-result size into the token estimate.
     public static void SetReadCapture(Action<string, int>? capture) => _readCapture = capture;
+
+    // Tracks paths already read during this turn so a repeat read_md_file call for the same
+    // file doesn't re-spend tokens/iteration budget on content the model already has.
+    public static void SetReadDedup(HashSet<string>? readPaths) => _readPaths = readPaths;
 
     public record ListDocsArgs;
     public record SearchArgs(string Query);
@@ -95,6 +100,17 @@ public static class MdTools
         {
             _logger.LogWarning("[tool:read_md_file] File not found: {Path}", args.Path);
             return new { error = $"File not found: {args.Path}" };
+        }
+
+        if (_readPaths is not null && !_readPaths.Add(args.Path))
+        {
+            _logger.LogInformation("[tool:read_md_file] Skipped duplicate read of {File} — already read this turn", Path.GetFileName(args.Path));
+            return new
+            {
+                path     = args.Path,
+                fileName = Path.GetFileName(args.Path),
+                note     = "Already read earlier in this turn — its full content is in an earlier tool result above. Do not request it again."
+            };
         }
 
         var content = await File.ReadAllTextAsync(args.Path);

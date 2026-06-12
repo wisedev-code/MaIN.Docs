@@ -55,9 +55,15 @@ export class Home implements OnDestroy {
   ];
 
   agents = AGENTS;
+  heroPrompts = AGENTS.flatMap(agent => agent.examplePrompts.map(text => ({ agent, text })));
+  heroPromptIndex = signal(0);
+  currentHeroPrompt = computed(() => this.heroPrompts[this.heroPromptIndex() % this.heroPrompts.length]);
+  private heroPromptTimer: ReturnType<typeof setInterval> | null = null;
   selectedAgent = signal<AgentDefinition>(AGENTS[0]);
   hoveredAgent = signal<AgentDefinition | null>(null);
   displayedAgent = signal<AgentDefinition>(AGENTS[0]);
+  agentGuideOpen = signal(false);
+  guideAgent = signal<AgentDefinition | null>(null);
   messages = signal<ChatMessage[]>([]);
   inputText = signal('');
   isStreaming = signal(false);
@@ -140,6 +146,13 @@ export class Home implements OnDestroy {
   constructor(private chatService: ChatService, private appStateService: AppStateService, private ngZone: NgZone) {
     this.chatResetSnapshot = this.appStateService.chatReset();
     this.loadConversationsFromStorage();
+    this.ngZone.runOutsideAngular(() => {
+      this.heroPromptTimer = setInterval(() => {
+        this.ngZone.run(() => {
+          this.heroPromptIndex.update(i => (i + 1) % this.heroPrompts.length);
+        });
+      }, 4500);
+    });
     effect(() => {
       const v = this.appStateService.chatReset();
       if (v > this.chatResetSnapshot) {
@@ -161,6 +174,17 @@ export class Home implements OnDestroy {
   }
 
   hideAgentInfo() { this.hoveredAgent.set(null); }
+
+  openAgentGuide() {
+    this.agentGuideOpen.set(true);
+    this.guideAgent.set(null);
+  }
+
+  closeAgentGuide() { this.agentGuideOpen.set(false); }
+
+  toggleGuideAgent(agent: AgentDefinition) {
+    this.guideAgent.set(this.guideAgent()?.id === agent.id ? null : agent);
+  }
 
   async send() {
     const rawText = this.inputText().trim();
@@ -952,7 +976,10 @@ export class Home implements OnDestroy {
     try { localStorage.setItem('main-recent-convos', JSON.stringify(updated)); } catch { /**/ }
   }
 
-  ngOnDestroy() { this.chatService.abort(); }
+  ngOnDestroy() {
+    this.chatService.abort();
+    if (this.heroPromptTimer) clearInterval(this.heroPromptTimer);
+  }
 
   renderMarkdown(content: string, artifactUrl?: string): string {
     // Strip the raw artifact download link from the text — the card already shows it.

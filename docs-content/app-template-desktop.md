@@ -465,6 +465,107 @@ property) live in `Avalonia.Platform.Storage`. There is no standalone type
 called `FileTypeFilter` — using that name as a type causes
 `CS0246: cannot find type or namespace 'FileTypeFilter'`.
 
+## Common AVLN2000 / XAML compile errors — avoid these
+
+Avalonia's XAML compiler (AVLN2000 "Unable to resolve property X on type Y") is much
+stricter about which properties exist on which controls than WPF. These are the most
+common hallucinated combinations — check for them before calling `show_file`:
+
+- **`Padding` does NOT exist on `Panel`-derived elements** — `StackPanel`, `Grid`,
+  `WrapPanel`, `DockPanel`, `Canvas` have no `Padding` property. Only `Border`,
+  `Decorator`, and `ContentControl`-derived elements (`Button`, `TextBox`,
+  `ContentControl`, `ScrollViewer`, `TabItem`, etc.) have `Padding`.
+  - To pad the contents of a `StackPanel`/`Grid`, wrap it in `<Border Padding="20">...</Border>`,
+    or set `Margin` on the panel itself.
+- **`Spacing` only exists on `StackPanel` and `WrapPanel`** — not `Grid` or `DockPanel`.
+  Use `Margin` on individual children for spacing in those.
+- **`CornerRadius` exists on `Border` and a few controls** (`Button`, `TextBox`, etc. —
+  anything templated on a rounded `ContentPresenter`/`Border`).
+- **`BoxShadow` exists ONLY on `Border`.** It is NOT a property of `Button`, `TextBox`,
+  `Image`, or any other control — `<Button BoxShadow="...">` is an AVLN2000 error. If a
+  button (or any other control) needs a shadow, wrap it in a `<Border BoxShadow="...">`,
+  or skip the shadow on that element entirely.
+- Rule of thumb: if you're adding `Padding`, `BoxShadow`, or a `Background` for visual
+  effect to a `StackPanel`/`Grid`/`WrapPanel`/`DockPanel`/`Button`/other non-`Border`
+  control, wrap that element in a `Border` and set the property on the `Border` instead.
+  `CornerRadius` is the only one of these that's safe directly on `Button`/`TextBox`.
+
+## Modern visual style — gradients & glass panels
+
+The default `FluentTheme` on its own looks flat and generic, and reusing the exact
+layout/palette from this template for every app is why generated apps look "boring and
+all the same". Layer these simple, verified techniques on top of `FluentTheme` (don't
+replace it) and pick a palette that fits the app's actual topic — a weather app, a
+recipe app, and a budgeting app should NOT end up with the same blue/gray look.
+
+### 1. App-wide accent palette in App.axaml
+
+```xml
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="ChatDesktop.App">
+  <Application.Styles>
+    <FluentTheme />
+  </Application.Styles>
+  <Application.Resources>
+    <SolidColorBrush x:Key="AccentBrush">#6366F1</SolidColorBrush>
+    <LinearGradientBrush x:Key="HeroGradient" StartPoint="0%,0%" EndPoint="100%,100%">
+      <GradientStop Color="#6366F1" Offset="0" />
+      <GradientStop Color="#EC4899" Offset="1" />
+    </LinearGradientBrush>
+  </Application.Resources>
+</Application>
+```
+
+Pick 2 colors that fit the app's domain instead of always reusing indigo/pink —
+e.g. sky/cyan for weather, emerald/teal for finance or health, amber/orange for
+productivity, violet/fuchsia for creative tools.
+
+### 2. Gradient header / hero panel
+
+```xml
+<Border Background="{StaticResource HeroGradient}" CornerRadius="0,0,16,16" Padding="24,18">
+  <TextBlock Text="Aura Weather" FontSize="22" FontWeight="Bold" Foreground="White" />
+</Border>
+```
+
+### 3. "Glass" cards
+
+```xml
+<Border Background="#1AFFFFFF" CornerRadius="16" Padding="18" BoxShadow="0 4 24 0 #40000000">
+  <!-- card content -->
+</Border>
+```
+
+`#1AFFFFFF` is white at ~10% opacity (ARGB hex, alpha first) — a translucent overlay
+that reads as "glass" on both dark and light window backgrounds. Increase the alpha
+(e.g. `#33FFFFFF`) for more contrast against a busy background.
+
+### 4. Window background
+
+Give the window a deliberate base color instead of the default flat gray, so the
+gradient/glass elements have something to sit on top of:
+
+```xml
+<Window ... Background="#0F172A">
+```
+
+### 5. Accent buttons
+
+```xml
+<Button Content="Refresh" Background="{StaticResource AccentBrush}" Foreground="White"
+        CornerRadius="8" Padding="14,8" />
+```
+
+### Vary the layout too, not just the colors
+
+This template's TabControl (Chat + Settings) is the right shape when the app's core
+feature genuinely is an AI chat. If the app's main feature is something else (a
+dashboard, a list + detail view, a single-page tool), build the layout that fits that
+feature — a `Grid` dashboard of `Border` "glass" cards, a master/detail `Grid` with two
+columns, etc. — and put the MaIN.NET config (Settings) behind a small gear `Button`
+that opens a second `Window`, rather than forcing every app into the same two-tab shape.
+
 ## Customizing
 
 - **Non-chat UI**: replace the Chat `TabItem` content with whatever controls suit

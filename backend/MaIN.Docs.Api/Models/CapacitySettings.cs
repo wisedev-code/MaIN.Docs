@@ -3,9 +3,10 @@ namespace MaIN.Docs.Api.Models;
 public record CapacitySettings(
     Tier1Settings Tier1,
     Tier2Settings Tier2,
-    Tier3Settings Tier3)
+    Tier3Settings Tier3,
+    string ReasoningEffort = "")
 {
-    public CapacitySettings() : this(new Tier1Settings(), new Tier2Settings(), new Tier3Settings()) { }
+    public CapacitySettings() : this(new Tier1Settings(), new Tier2Settings(), new Tier3Settings(), "") { }
 }
 
 public record Tier1Settings(long TokenLimit = 150_000, int CooldownMinutes = 180)

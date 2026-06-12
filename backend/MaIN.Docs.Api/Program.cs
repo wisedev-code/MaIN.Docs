@@ -43,6 +43,7 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.Configure<CapacitySettings>(builder.Configuration.GetSection("Capacity"));
+builder.Services.Configure<ModelSettings>(builder.Configuration.GetSection("Models"));
 builder.Services.AddSingleton<CapacityStateStore>();
 builder.Services.AddSingleton<CapacityService>();
 builder.Services.AddHostedService<CapacityPersistenceService>();

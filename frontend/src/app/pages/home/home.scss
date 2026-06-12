@@ -1,3 +1,11 @@
+// Per-agent accent colors — shared between the hero prompt rotator and the agent guide modal.
+$agent-colors: (
+  chatty: #22d3ee,
+  code:   #818cf8,
+  design: #c084fc,
+  review: #fbbf24,
+);
+
 .home {
   position: relative;
   min-height: 100vh;
@@ -101,30 +109,73 @@
     letter-spacing: -0.5px;
   }
 
-  .hero-sub {
-    font-size: 14.5px;
-    max-width: 440px;
-    margin: 0 auto 2rem;
-    line-height: 1.8;
-    letter-spacing: 0.1px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 0 5px;
-    color: var(--text-muted);
+}
 
-    .hero-sub-accent {
-      color: var(--accent);
-      font-weight: 500;
-      letter-spacing: 0.2px;
-    }
+// ── Hero example-prompt rotator ─────────────────────────
+.hero-prompt-rotator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 64px;
+  max-width: 620px;
+  margin: 0 auto 2rem;
+  padding: 0 1rem;
+}
 
-    .hero-sub-dim {
-      color: var(--text-subtle);
-      font-weight: 300;
-    }
+.hero-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  animation: heroPromptIn 0.5s cubic-bezier(0.34, 1.0, 0.64, 1) both;
+}
+
+@keyframes heroPromptIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.hp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 11px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-accent);
+  background: var(--accent-glow);
+  color: var(--accent-dim);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.hp-badge-icon {
+  font-family: 'Space Grotesk', sans-serif;
+  font-style: italic;
+  font-weight: 800;
+}
+
+.hp-text {
+  font-size: 14.5px;
+  line-height: 1.7;
+  letter-spacing: 0.1px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+@each $id, $color in $agent-colors {
+  .hp-badge.hp-#{$id} {
+    border-color: rgba($color, 0.4);
+    background: rgba($color, 0.12);
+    color: $color;
   }
+}
+
+.hp-badge.hp-forge {
+  border-color: var(--accent);
+  background: linear-gradient(135deg, rgba(0, 255, 204, 0.18) 0%, rgba(167, 139, 250, 0.18) 100%);
+  color: var(--accent);
 }
 
 // ── Message animations ─────────────────────────────────
@@ -515,11 +566,57 @@
   position: relative;
 }
 
+.agent-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .agent-switcher {
   display: flex;
+  flex: 1;
   gap: 0.5rem;
   flex-wrap: wrap;
   align-items: center;
+}
+
+// ── Agent guide trigger ─────────────────────────────────
+.agent-guide-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border-accent);
+  background: var(--accent-glow);
+  color: var(--accent);
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+  animation: guideGlow 2.6s ease-in-out infinite;
+
+  &:hover {
+    transform: scale(1.08);
+    color: var(--bg-base);
+    background: var(--accent);
+    border-color: var(--accent);
+    animation-play-state: paused;
+    box-shadow: 0 0 18px var(--accent-glow-strong), 0 0 30px rgba(100, 60, 255, 0.4);
+  }
+
+  svg { flex-shrink: 0; }
+}
+
+@keyframes guideGlow {
+  0%, 100% {
+    box-shadow: 0 0 6px var(--accent-glow), 0 0 0 rgba(100, 60, 255, 0);
+    border-color: var(--border-accent);
+  }
+  50% {
+    box-shadow: 0 0 12px var(--accent-glow-strong), 0 0 20px rgba(100, 60, 255, 0.35);
+    border-color: var(--accent);
+  }
 }
 
 .cap-indicator {
@@ -2148,6 +2245,383 @@
     color: var(--text-muted);
     background: var(--bg-card);
   }
+}
+
+// ── Agent guide modal ──────────────────────────────────
+.agent-guide-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  animation: fadeReveal 0.2s ease both;
+}
+
+.agent-guide-modal {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 1100px;
+  max-height: 88vh;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-accent);
+  background:
+    linear-gradient(160deg, rgba(0, 255, 204, 0.07) 0%, rgba(100, 60, 255, 0.06) 100%),
+    var(--bg-glass);
+  backdrop-filter: blur(24px) saturate(160%);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  overflow: hidden;
+  animation: promptSlideUp 0.25s cubic-bezier(0.34, 1.15, 0.64, 1) both;
+}
+
+.agent-guide-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 22px 26px 18px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(120deg, rgba(0, 255, 204, 0.05) 0%, rgba(160, 100, 255, 0.05) 100%);
+}
+
+.agent-guide-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.agent-guide-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  background: linear-gradient(120deg, var(--accent) 0%, #a78bfa 60%, #fbbf24 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.agent-guide-subtitle {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.agent-guide-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    color: var(--text);
+    border-color: var(--border-accent);
+    background: var(--accent-glow);
+  }
+}
+
+.agent-guide-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 20px 26px 26px;
+  overflow-y: auto;
+}
+
+.agent-guide-intro {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--text-muted);
+
+  strong { color: var(--text); font-weight: 600; }
+}
+
+// ── Agent picker tiles ──────────────────────────────────
+.agent-guide-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.agt-tile {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 16px 9px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+
+  &:hover {
+    border-color: var(--border-accent);
+    color: var(--text);
+    transform: translateY(-1px);
+  }
+
+  &.active {
+    color: var(--text);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+    transform: translateY(-1px);
+  }
+}
+
+.agt-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 7px;
+  font-size: 13px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-style: italic;
+  background: var(--accent-glow);
+  color: var(--accent);
+}
+
+.agt-beta {
+  font-size: 7.5px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #000;
+  background: var(--accent);
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+@each $id, $color in $agent-colors {
+  .agt-tile.agc-#{$id}.active {
+    border-color: rgba($color, 0.55);
+    background: linear-gradient(135deg, rgba($color, 0.18), rgba($color, 0.05)), var(--bg-card);
+
+    .agt-icon {
+      color: $color;
+      background: rgba($color, 0.22);
+    }
+  }
+
+  .agent-guide-detail.agc-#{$id} {
+    border-top-color: $color;
+
+    .agc-icon {
+      color: $color;
+      background: radial-gradient(circle at 30% 30%, rgba($color, 0.38), rgba($color, 0.08));
+      border-color: rgba($color, 0.5);
+      box-shadow: 0 0 16px rgba($color, 0.35);
+    }
+
+    .agc-tagline { color: $color; }
+  }
+}
+
+.agt-tile.agc-forge.active {
+  border-color: var(--accent);
+  background: linear-gradient(135deg, rgba(0, 255, 204, 0.18), rgba(167, 139, 250, 0.18)), var(--bg-card);
+
+  .agt-icon {
+    color: var(--accent);
+    background: linear-gradient(135deg, rgba(0, 255, 204, 0.35) 0%, rgba(167, 139, 250, 0.35) 100%);
+  }
+}
+
+.agent-guide-detail.agc-forge {
+  border-top: none;
+  border-image: linear-gradient(90deg, var(--accent) 0%, #a78bfa 100%) 1;
+
+  .agc-icon {
+    color: var(--accent);
+    background: linear-gradient(135deg, rgba(0, 255, 204, 0.35) 0%, rgba(167, 139, 250, 0.35) 100%);
+    border-color: var(--accent);
+    box-shadow: 0 0 18px var(--accent-glow-strong), 0 0 26px rgba(167, 139, 250, 0.35);
+  }
+}
+
+// ── Expanded agent detail panel ─────────────────────────
+.agent-guide-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 22px 24px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--border-accent);
+  background: var(--bg-card);
+  animation: guideDetailIn 0.22s cubic-bezier(0.34, 1.15, 0.64, 1) both;
+
+  &.special {
+    background:
+      linear-gradient(135deg, rgba(0, 255, 204, 0.05) 0%, rgba(160, 100, 255, 0.05) 100%),
+      var(--bg-card);
+  }
+}
+
+@keyframes guideDetailIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.agc-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 18px;
+}
+
+.agc-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.agc-icon {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-style: italic;
+  color: var(--accent);
+  background: var(--accent-glow);
+  border: 1px solid var(--border-accent);
+  border-radius: 12px;
+}
+
+.agc-head-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  justify-content: center;
+}
+
+.agc-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.agc-name {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.agc-beta {
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #000;
+  background: var(--accent);
+  padding: 1px 4px;
+  border-radius: 4px;
+  box-shadow: 0 0 8px var(--accent-glow-strong);
+}
+
+.agc-tagline {
+  font-size: 11.5px;
+  color: var(--accent-dim);
+  font-weight: 500;
+}
+
+.agc-desc {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.agc-section {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.agc-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+
+.agc-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.agc-chip {
+  font-size: 10.5px;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  white-space: nowrap;
+  cursor: default;
+}
+
+.agc-chip-dim {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-subtle);
+  padding-left: 0;
+}
+
+.agc-best-for {
+  margin: 0;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.agc-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 9px 11px;
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--border-accent);
+  background: var(--accent-glow);
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.agc-tip-icon {
+  flex-shrink: 0;
+  color: var(--accent);
+  font-size: 11px;
+  line-height: 1.55;
 }
 
 // ── Recent conversations sidebar ───────────────────────

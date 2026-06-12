@@ -22,11 +22,16 @@
       <div class="hero animate-in">
         <div class="hero-badge">AI-Powered Documentation</div>
         <h1 class="hero-title">What can I help you build?</h1>
-        <p class="hero-sub">
-          <span>Ask anything about</span>
-          <span class="hero-sub-accent">MaIN.NET</span>
-          <span class="hero-sub-dim">— code, architecture, or debugging.</span>
-        </p>
+        <div class="hero-prompt-rotator">
+          @for (item of [currentHeroPrompt()]; track heroPromptIndex()) {
+            <div class="hero-prompt">
+              <span class="hp-badge hp-{{ item.agent.id }}">
+                <span class="hp-badge-icon">{{ item.agent.icon }}</span>{{ item.agent.name }}
+              </span>
+              <span class="hp-text">"{{ item.text }}"</span>
+            </div>
+          }
+        </div>
         @if (selectedAgent().id === 'flow') {
           <div class="flow-info-panel">
             <div class="flow-stages">
@@ -484,7 +489,21 @@
 
     <div class="input-area" [class.centered]="!hasMessages()">
       <div class="agent-zone" (mouseleave)="hideAgentInfo()">
-        <div class="agent-switcher">
+        <div class="agent-row">
+          <button
+            type="button"
+            class="agent-guide-btn"
+            title="What can each agent do?"
+            aria-label="Open agent guide"
+            (click)="openAgentGuide()"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="16" x2="12" y2="11.5"/>
+              <circle cx="12" cy="7.75" r="0.5" fill="currentColor" stroke="none"/>
+            </svg>
+          </button>
+          <div class="agent-switcher">
           @for (agent of agents; track agent.id) {
             <button
               class="agent-pill"
@@ -502,6 +521,7 @@
           <div class="cap-indicator {{ capacityMeta().cls }}" [title]="'Capacity: ' + capacity()">
             <span class="cap-symbol">{{ capacityMeta().emoji }}</span>
             <span class="cap-text">{{ capacityMeta().label }}</span>
+          </div>
           </div>
         </div>
 
@@ -620,6 +640,94 @@
           </button>
         </div>
         <span class="arc-run-hint">Downloads the artifact, extracts it, and runs <code>dotnet run</code>.</span>
+      </div>
+    </div>
+  }
+
+  @if (agentGuideOpen()) {
+    <div class="agent-guide-overlay" (click)="closeAgentGuide()">
+      <div class="agent-guide-modal" (click)="$event.stopPropagation()">
+        <div class="agent-guide-header">
+          <div class="agent-guide-title-wrap">
+            <span class="agent-guide-title">Meet the agents</span>
+            <span class="agent-guide-subtitle">What each one does, and when to reach for it</span>
+          </div>
+          <button type="button" class="agent-guide-close" title="Close" (click)="closeAgentGuide()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="agent-guide-body">
+          <p class="agent-guide-intro">
+            MaIN.Docs pairs you with a set of specialized agents, each tuned for a different
+            stage of working with the <strong>MaIN.NET</strong> framework — from quick
+            documentation lookups to full project generation, system architecture, and code
+            review. Switch between them anytime using the tiles above the input, or reach
+            for <strong>Forge</strong> to cover everything in one conversation. Tap an agent
+            below to see what it does, what tools it can use, and how to get the most out of it.
+          </p>
+
+          <div class="agent-guide-tiles">
+            @for (agent of agents; track agent.id) {
+              <button
+                type="button"
+                class="agt-tile agc-{{ agent.id }}"
+                [class.active]="guideAgent()?.id === agent.id"
+                [class.special]="agent.special"
+                (click)="toggleGuideAgent(agent)"
+              >
+                <span class="agt-icon">{{ agent.icon }}</span>
+                <span class="agt-name">{{ agent.name }}</span>
+                @if (agent.beta) { <span class="agt-beta">BETA</span> }
+              </button>
+            }
+          </div>
+
+          @if (guideAgent(); as agent) {
+            <div class="agent-guide-detail agc-{{ agent.id }}" [class.special]="agent.special">
+              <div class="agc-head">
+                <div class="agc-icon">{{ agent.icon }}</div>
+                <div class="agc-head-text">
+                  <div class="agc-name-row">
+                    <span class="agc-name">{{ agent.name }}</span>
+                    @if (agent.beta) { <span class="agc-beta">BETA</span> }
+                  </div>
+                  <span class="agc-tagline">{{ agent.tagline }}</span>
+                </div>
+              </div>
+              <p class="agc-desc">{{ agent.description }}</p>
+              <div class="agc-detail-grid">
+                <div class="agc-section">
+                  <span class="agc-label">Capable of</span>
+                  <div class="agc-chips">
+                    @for (cap of agent.capabilities; track cap.label) {
+                      <span class="agc-chip" [title]="cap.description">{{ cap.label }}</span>
+                    }
+                  </div>
+                </div>
+                <div class="agc-section">
+                  <span class="agc-label">Tools</span>
+                  <div class="agc-chips">
+                    @for (tool of agent.tools; track tool) {
+                      <span class="agc-chip agc-chip-dim">{{ tool }}</span>
+                    }
+                  </div>
+                </div>
+                <div class="agc-section">
+                  <span class="agc-label">Best for</span>
+                  <ul class="agc-best-for">
+                    @for (item of agent.bestFor; track item) {
+                      <li>{{ item }}</li>
+                    }
+                  </ul>
+                </div>
+              </div>
+              <div class="agc-tip">
+                <span class="agc-tip-icon">&#9733;</span>
+                <span class="agc-tip-text">{{ agent.tip }}</span>
+              </div>
+            </div>
+          }
+        </div>
       </div>
     </div>
   }
