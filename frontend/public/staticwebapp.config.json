@@ -2,10 +2,10 @@
   "navigationFallback": {
     "rewrite": "/index.html",
     "exclude": [
-      "/api/**",
+      "/api/*",
       "/env.js",
-      "/scripts/**",
-      "/docs/**",
+      "/scripts/*",
+      "/docs/*",
       "*.{css,js,png,gif,ico,svg,woff,woff2,ttf,eot,map}"
     ]
   },
