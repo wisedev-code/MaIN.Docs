@@ -67,6 +67,3 @@ jobs:
           resourceGroup: MaIN
           containerAppName: maindoc-backend
           imageToDeploy: ghcr.io/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
-          registryUrl: ghcr.io
-          registryUsername: ${{ github.actor }}
-          registryPassword: ${{ secrets.GHCR_PAT }}
