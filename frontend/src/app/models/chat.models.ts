@@ -196,7 +196,7 @@ export const AGENTS: AgentDefinition[] = [
     bestFor: ['Debugging issues', 'Code quality', 'Docker / deployment', 'Configuration errors'],
     tip: 'Paste the error message and the surrounding code (or a GitHub PR link) — Review works best with concrete context, not "why doesn\'t this work?".',
     examplePrompts: [
-      'Review open PR #128 on MaIN.NET — is it safe to merge?',
+      'Review the newest PR on MaIN.NET — is it safe to merge?',
       'List the current open PRs on MaIN.NET and rank their strengths',
       'Audit this AgentContext setup for thread-safety issues',
     ],

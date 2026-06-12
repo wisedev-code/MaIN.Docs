@@ -55,9 +55,13 @@ export class Home implements OnDestroy {
   ];
 
   agents = AGENTS;
-  heroPrompts = AGENTS.flatMap(agent => agent.examplePrompts.map(text => ({ agent, text })));
   heroPromptIndex = signal(0);
-  currentHeroPrompt = computed(() => this.heroPrompts[this.heroPromptIndex() % this.heroPrompts.length]);
+  heroPromptLaunching = signal(false);
+  currentHeroPrompt = computed(() => {
+    const agent = this.selectedAgent();
+    const prompts = agent.examplePrompts;
+    return { agent, text: prompts[this.heroPromptIndex() % prompts.length] };
+  });
   private heroPromptTimer: ReturnType<typeof setInterval> | null = null;
   selectedAgent = signal<AgentDefinition>(AGENTS[0]);
   hoveredAgent = signal<AgentDefinition | null>(null);
@@ -149,10 +153,15 @@ export class Home implements OnDestroy {
     this.ngZone.runOutsideAngular(() => {
       this.heroPromptTimer = setInterval(() => {
         this.ngZone.run(() => {
-          this.heroPromptIndex.update(i => (i + 1) % this.heroPrompts.length);
+          const len = this.selectedAgent().examplePrompts.length;
+          this.heroPromptIndex.update(i => (i + 1) % len);
         });
       }, 4500);
     });
+    effect(() => {
+      this.selectedAgent();
+      this.heroPromptIndex.set(0);
+    }, { allowSignalWrites: true });
     effect(() => {
       const v = this.appStateService.chatReset();
       if (v > this.chatResetSnapshot) {
@@ -184,6 +193,16 @@ export class Home implements OnDestroy {
 
   toggleGuideAgent(agent: AgentDefinition) {
     this.guideAgent.set(this.guideAgent()?.id === agent.id ? null : agent);
+  }
+
+  selectHeroPrompt(text: string) {
+    if (this.heroPromptLaunching() || this.isStreaming()) return;
+    this.heroPromptLaunching.set(true);
+    setTimeout(() => {
+      this.heroPromptLaunching.set(false);
+      this.inputText.set(text);
+      this.send();
+    }, 200);
   }
 
   async send() {

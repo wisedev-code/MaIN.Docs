@@ -23,13 +23,21 @@
         <div class="hero-badge">AI-Powered Documentation</div>
         <h1 class="hero-title">What can I help you build?</h1>
         <div class="hero-prompt-rotator">
-          @for (item of [currentHeroPrompt()]; track heroPromptIndex()) {
-            <div class="hero-prompt">
+          @for (item of [currentHeroPrompt()]; track item.text) {
+            <button
+              type="button"
+              class="hero-prompt"
+              [class.launching]="heroPromptLaunching()"
+              (click)="selectHeroPrompt(item.text)"
+            >
               <span class="hp-badge hp-{{ item.agent.id }}">
                 <span class="hp-badge-icon">{{ item.agent.icon }}</span>{{ item.agent.name }}
               </span>
-              <span class="hp-text">"{{ item.text }}"</span>
-            </div>
+              <span class="hp-text">
+                "{{ item.text }}"
+                <span class="hp-arrow">→</span>
+              </span>
+            </button>
           }
         </div>
         @if (selectedAgent().id === 'flow') {

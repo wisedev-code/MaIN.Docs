@@ -127,12 +127,49 @@ $agent-colors: (
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  animation: heroPromptIn 0.5s cubic-bezier(0.34, 1.0, 0.64, 1) both;
+  padding: 10px 20px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: transparent;
+  font-family: inherit;
+  cursor: pointer;
+  animation: heroPromptIn 0.55s cubic-bezier(0.34, 1.0, 0.64, 1) both;
+  transition: background 0.25s ease, border-color 0.25s ease, transform 0.2s ease, box-shadow 0.25s ease;
+
+  &:hover, &:focus-visible {
+    background: var(--bg-card);
+    border-color: var(--border-accent);
+    box-shadow: 0 6px 24px -12px var(--accent-glow);
+    transform: translateY(-2px);
+
+    .hp-arrow {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  &:focus-visible {
+    outline: none;
+  }
+
+  &:active {
+    transform: translateY(-1px) scale(0.98);
+  }
+
+  &.launching {
+    pointer-events: none;
+    animation: heroPromptLaunch 0.2s ease-in forwards;
+  }
 }
 
 @keyframes heroPromptIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes heroPromptLaunch {
+  from { opacity: 1; transform: scale(1) translateY(0); }
+  to   { opacity: 0; transform: scale(0.94) translateY(-10px); }
 }
 
 .hp-badge {
@@ -157,11 +194,23 @@ $agent-colors: (
 }
 
 .hp-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 14.5px;
   line-height: 1.7;
   letter-spacing: 0.1px;
   color: var(--text-muted);
   font-style: italic;
+}
+
+.hp-arrow {
+  font-style: normal;
+  font-weight: 700;
+  color: var(--accent);
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
 }
 
 @each $id, $color in $agent-colors {
