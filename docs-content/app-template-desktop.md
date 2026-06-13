@@ -29,7 +29,7 @@ switch to Chat.
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>ChatDesktop</RootNamespace>
@@ -565,6 +565,264 @@ dashboard, a list + detail view, a single-page tool), build the layout that fits
 feature — a `Grid` dashboard of `Border` "glass" cards, a master/detail `Grid` with two
 columns, etc. — and put the MaIN.NET config (Settings) behind a small gear `Button`
 that opens a second `Window`, rather than forcing every app into the same two-tab shape.
+
+## Advanced UI — IDE-grade controls
+
+These patterns let you build rich, complex applications like programming IDEs,
+code editors, and multi-panel developer tools. Layer them on top of the base template.
+
+### Syntax-highlighted code editor (AvaloniaEdit)
+
+`AvaloniaEdit` is a full-featured code editor control for Avalonia — the same engine
+behind JetBrains Rider's editor.
+
+**CRITICAL — package name:** There are two NuGet packages. You MUST use `Avalonia.AvaloniaEdit`
+(the modern Avalonia 11-compatible package). Do NOT use the legacy `AvaloniaEdit` package —
+it tops out at `0.10.12` and will fail to restore when requested at `11.*`.
+
+Add it to the `.csproj`:
+
+```xml
+<PackageReference Include="Avalonia.AvaloniaEdit" Version="11.*" />
+```
+
+Use it in XAML (add the namespace):
+
+```xml
+<Window xmlns:aedit="using:AvaloniaEdit">
+  ...
+  <aedit:TextEditor Name="CodeEditor"
+                    FontFamily="Cascadia Code,Consolas,Monospace"
+                    FontSize="14"
+                    ShowLineNumbers="True"
+                    SyntaxHighlighting="C#"
+                    Background="#1E1E1E"
+                    Foreground="#D4D4D4"
+                    Padding="8" />
+</Window>
+```
+
+Set or read content in code-behind:
+
+```csharp
+using AvaloniaEdit;
+using AvaloniaEdit.Highlighting;
+
+// set content
+CodeEditor.Text = File.ReadAllText(filePath);
+
+// change syntax highlighting at runtime
+CodeEditor.SyntaxHighlighting = HighlightingManager.Instance.GetDefinitionByExtension(".cs");
+
+// get current content
+var code = CodeEditor.Text;
+```
+
+Built-in `SyntaxHighlighting` values (case-insensitive string or via extension):
+`"C#"`, `"XML"`, `"HTML"`, `"JavaScript"`, `"Python"`, `"SQL"`, `"JSON"`, `"CSS"`,
+`"PowerShell"`, `"Boo"`, `"TeX"`, `"MarkDown"`.
+Use `HighlightingManager.Instance.GetDefinitionByExtension(".ts")` etc. for others.
+
+### IDE-style resizable multi-panel layout (GridSplitter)
+
+A typical IDE layout: file tree on the left, editor in the center, AI panel on the right,
+output/terminal at the bottom. Use `Grid` + `GridSplitter`:
+
+```xml
+<Grid RowDefinitions="Auto,*,6,180" ColumnDefinitions="220,6,*,6,280">
+
+  <!-- Toolbar row spans all columns -->
+  <Border Grid.Row="0" Grid.ColumnSpan="5" Background="#2D2D2D" Padding="8,6">
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <Button Content="▶ Run" Background="#0E7C0E" Foreground="White" CornerRadius="4" Padding="10,4" />
+      <Button Content="Open File…" CornerRadius="4" Padding="10,4" />
+    </StackPanel>
+  </Border>
+
+  <!-- File tree -->
+  <Border Grid.Row="1" Grid.Column="0" Background="#252526">
+    <TreeView Name="FileTree" />
+  </Border>
+  <GridSplitter Grid.Row="1" Grid.Column="1" ResizeDirection="Columns"
+                Background="#3C3C3C" />
+
+  <!-- Code editor (center) -->
+  <aedit:TextEditor Grid.Row="1" Grid.Column="2" Name="CodeEditor"
+                    FontFamily="Cascadia Code,Consolas,Monospace"
+                    FontSize="13" ShowLineNumbers="True"
+                    SyntaxHighlighting="C#"
+                    Background="#1E1E1E" Foreground="#D4D4D4" />
+  <GridSplitter Grid.Row="1" Grid.Column="3" ResizeDirection="Columns"
+                Background="#3C3C3C" />
+
+  <!-- AI chat panel (right) -->
+  <Border Grid.Row="1" Grid.Column="4" Background="#1E1E1E" Padding="8">
+    <Grid RowDefinitions="*,Auto">
+      <ScrollViewer Grid.Row="0" Name="AiScroll">
+        <ItemsControl Name="AiMessages" />
+      </ScrollViewer>
+      <TextBox Grid.Row="1" Name="AiInput" Watermark="Ask the AI…" Margin="0,6,0,0" />
+    </Grid>
+  </Border>
+
+  <!-- GridSplitter between editor rows and output row -->
+  <GridSplitter Grid.Row="2" Grid.ColumnSpan="5" ResizeDirection="Rows"
+                Background="#3C3C3C" />
+
+  <!-- Output / terminal panel (bottom) -->
+  <Border Grid.Row="3" Grid.ColumnSpan="5" Background="#0C0C0C" Padding="8">
+    <ScrollViewer>
+      <TextBlock Name="OutputText" FontFamily="Cascadia Code,Consolas,Monospace"
+                 FontSize="12" Foreground="#CCCCCC" TextWrapping="Wrap" />
+    </ScrollViewer>
+  </Border>
+
+</Grid>
+```
+
+`GridSplitter` resizes on drag automatically — no extra code needed. Set
+`ResizeDirection="Columns"` for vertical splitters and `ResizeDirection="Rows"`
+for horizontal ones.
+
+### File tree with TreeView + HierarchicalDataTemplate
+
+```csharp
+// Model
+public record FileNode(string Name, string FullPath, bool IsDirectory, List<FileNode> Children);
+
+// Build the tree from a root directory
+FileNode BuildTree(string dir) => new(
+    Path.GetFileName(dir), dir, true,
+    [.. Directory.GetDirectories(dir).Select(BuildTree),
+     .. Directory.GetFiles(dir).Select(f => new FileNode(Path.GetFileName(f), f, false, []))]);
+```
+
+```xml
+<TreeView Name="FileTree">
+  <TreeView.ItemTemplate>
+    <HierarchicalDataTemplate DataType="{x:Type local:FileNode}"
+                              ItemsSource="{Binding Children}">
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <TextBlock Text="{Binding IsDirectory, Converter={x:Static local:BoolToFolderIcon.Instance}}"
+                   Foreground="#C8A84B" />
+        <TextBlock Text="{Binding Name}" Foreground="#CCCCCC" />
+      </StackPanel>
+    </HierarchicalDataTemplate>
+  </TreeView.ItemTemplate>
+</TreeView>
+```
+
+Wire up file-open on selection in code-behind:
+
+```csharp
+FileTree.SelectionChanged += (_, _) =>
+{
+    if (FileTree.SelectedItem is FileNode { IsDirectory: false } node)
+    {
+        CodeEditor.Text = File.ReadAllText(node.FullPath);
+        CodeEditor.SyntaxHighlighting =
+            HighlightingManager.Instance.GetDefinitionByExtension(
+                Path.GetExtension(node.FullPath));
+    }
+};
+```
+
+### Multi-file tabs (TabControl over the editor)
+
+To support multiple open files, replace the single `TextEditor` with a `TabControl`:
+
+```xml
+<TabControl Name="EditorTabs" Grid.Row="1" Grid.Column="2">
+  <!-- tabs are added dynamically in code-behind -->
+</TabControl>
+```
+
+```csharp
+void OpenFileInTab(string filePath)
+{
+    var editor = new TextEditor
+    {
+        Text = File.ReadAllText(filePath),
+        FontFamily = new FontFamily("Cascadia Code,Consolas,Monospace"),
+        FontSize = 13,
+        ShowLineNumbers = true,
+        SyntaxHighlighting = HighlightingManager.Instance
+            .GetDefinitionByExtension(Path.GetExtension(filePath)),
+        Background = new SolidColorBrush(Color.Parse("#1E1E1E")),
+        Foreground = new SolidColorBrush(Color.Parse("#D4D4D4")),
+    };
+
+    var tab = new TabItem
+    {
+        Header = Path.GetFileName(filePath),
+        Content = editor,
+    };
+    EditorTabs.Items.Add(tab);
+    EditorTabs.SelectedItem = tab;
+}
+```
+
+### AI code assistant integration pattern
+
+Wire the AI panel to the current editor selection so the AI sees the code in context:
+
+```csharp
+async void OnAiSend(object? sender, RoutedEventArgs e)
+{
+    var question = AiInput.Text?.Trim();
+    if (string.IsNullOrEmpty(question)) return;
+    AiInput.Text = "";
+
+    // Pass selected code or full editor content as context
+    var ctx = CodeEditor.SelectedText.Length > 0
+        ? CodeEditor.SelectedText
+        : CodeEditor.Text;
+
+    var prompt = string.IsNullOrWhiteSpace(ctx)
+        ? question
+        : $"{question}\n\n```csharp\n{ctx}\n```";
+
+    var reply = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Brushes.White };
+    // add to AiMessages panel...
+
+    MaINSetup.EnsureInitialized();
+    var s = MaINSetup.Load();
+    _agent ??= await AIHub.Agent()
+        .WithModel(s.ModelName)
+        .WithInitialPrompt("You are an expert C# code assistant. Analyze code, suggest improvements, and explain concepts clearly.")
+        .CreateAsync();
+
+    await _agent.ProcessAsync(prompt, tokenCallback: token =>
+    {
+        if (!string.IsNullOrEmpty(token?.Text))
+            Dispatcher.UIThread.Post(() => reply.Text += token.Text);
+        return Task.CompletedTask;
+    });
+}
+```
+
+### Status bar (bottom strip)
+
+```xml
+<Border Background="#007ACC" Padding="8,3">
+  <Grid ColumnDefinitions="*,Auto,Auto">
+    <TextBlock Grid.Column="0" Name="StatusText" Text="Ready" Foreground="White" FontSize="11" />
+    <TextBlock Grid.Column="1" Name="CursorPos"  Text="Ln 1, Col 1" Foreground="White"
+               FontSize="11" Margin="0,0,16,0" />
+    <TextBlock Grid.Column="2" Name="LangLabel"  Text="C#" Foreground="White" FontSize="11" />
+  </Grid>
+</Border>
+```
+
+Update cursor position from the editor's `TextArea.Caret.PositionChanged` event:
+
+```csharp
+CodeEditor.TextArea.Caret.PositionChanged += (_, _) =>
+{
+    var loc = CodeEditor.TextArea.Caret.Location;
+    CursorPos.Text = $"Ln {loc.Line}, Col {loc.Column}";
+};
+```
 
 ## Customizing
 

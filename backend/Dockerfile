@@ -13,7 +13,7 @@ RUN dotnet publish MaIN.Docs.Api/MaIN.Docs.Api.csproj \
         -o /app && \
     rm -rf /app/runtimes
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS runtime
 WORKDIR /app
 
 COPY --from=build /app .

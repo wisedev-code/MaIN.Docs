@@ -1,7 +1,9 @@
 <div class="home">
   <div class="bg-mesh"></div>
+  <div class="bg-grid"></div>
   <div class="bg-glow bg-glow-1"></div>
   <div class="bg-glow bg-glow-2"></div>
+  <div class="bg-glow bg-glow-3"></div>
 
   @if (recentConversations().length > 0) {
     <div class="recent-sidebar">
@@ -20,8 +22,11 @@
 
     @if (!hasMessages()) {
       <div class="hero animate-in">
-        <div class="hero-badge">AI-Powered Documentation</div>
-        <h1 class="hero-title">What can I help you build?</h1>
+        <div class="hero-badge">
+          <span class="hero-badge-dot"></span>MaIN.NET Assistant
+        </div>
+        <h1 class="hero-title">What can I help you<br><span class="hero-title-gradient">build today?</span></h1>
+        <p class="hero-sub">Ask anything · Generate runnable code · Ship to GitHub</p>
         <div class="hero-prompt-rotator">
           @for (item of [currentHeroPrompt()]; track item.text) {
             <button
@@ -33,10 +38,7 @@
               <span class="hp-badge hp-{{ item.agent.id }}">
                 <span class="hp-badge-icon">{{ item.agent.icon }}</span>{{ item.agent.name }}
               </span>
-              <span class="hp-text">
-                "{{ item.text }}"
-                <span class="hp-arrow">→</span>
-              </span>
+              <span class="hp-text">{{ item.text }}<span class="hp-arrow">→</span></span>
             </button>
           }
         </div>
@@ -325,6 +327,9 @@
                     <span></span><span></span>
                   </div>
                   <span class="inf-face">{{ currentFace() }}</span>
+                  @if (longThinkingMsg()) {
+                    <span class="inf-long-thinking" [attr.key]="longThinkingMsg()">{{ longThinkingMsg() }}</span>
+                  }
                 </div>
               } @else {
                 <div class="msg-content" [innerHTML]="renderMarkdown(msg.content, msg.artifactUrl)"></div>
@@ -333,7 +338,7 @@
                 }
               }
 
-              @if (!msg.streaming && msg.filesProposed && msg.filesProposed.length > 0) {
+              @if (!msg.streaming && !msg.isError && msg.filesProposed && msg.filesProposed.length > 0) {
                 <div class="file-tiles">
                   @for (file of msg.filesProposed; track file.path) {
                     <div class="file-tile" [class.open]="isFileExpanded(msgIdx, file.path)">

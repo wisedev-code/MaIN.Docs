@@ -219,7 +219,7 @@ public class DocsAgentOrchestrator(
 
         var sem = _locks[agentId];
 
-        if (!await sem.WaitAsync(TimeSpan.FromSeconds(60), ct))
+        if (!await sem.WaitAsync(TimeSpan.FromSeconds(300), ct))
             throw new TimeoutException($"Agent '{agentId}' is busy. Please retry.");
 
         string? artifactUrl = null;
@@ -248,7 +248,7 @@ public class DocsAgentOrchestrator(
         {
             ArtifactTools.SetCapture(url => artifactUrl = url);
             ArtifactTools.SetProposalCapture(p => artifactProposed = new ArtifactProposal(p.ArchiveName, p.Description, p.Kind));
-            FileTools.SetCapture(f => filesProposed.Add(new ProposedFile(f.Path, f.Content, f.Language)));
+            BuildTools.SetShowCallback(f => filesProposed.Add(new ProposedFile(f.Path, f.Content, f.Language)));
         }
 
         if (agentId is "design" or "ensemble-design")
@@ -397,7 +397,7 @@ public class DocsAgentOrchestrator(
         {
             ArtifactTools.SetCapture(null);
             ArtifactTools.SetProposalCapture(null);
-            FileTools.SetCapture(null);
+            BuildTools.SetShowCallback(null);
             IssueTools.SetProposalCapture(null);
             IssueTools.SetUrlCapture(null);
             PlanTools.SetCapture(null);
@@ -834,31 +834,28 @@ public class DocsAgentOrchestrator(
 
     private static ToolsConfiguration BuildCodeTools(string docsPath) =>
         SharedDocsTools()
-            .AddTool<FileTools.ShowFileArgs>(
-                "show_file",
-                "Renders a file as a collapsible code tile in the UI. " +
-                "Call once per file — this is the ONLY way the user sees your code. " +
-                "Do NOT write fenced code blocks in your text response. " +
-                "Call for every file in the solution: minimum .csproj + Program.cs.",
+            .AddTool<BuildTools.DraftFileArgs>(
+                "draft_file",
+                "Shows a file immediately in the UI. " +
+                "Call once per file (minimum .csproj + Program.cs). " +
+                "Re-calling with the same path replaces the file — use this if the user asks to fix something.",
                 new
                 {
                     type = "object",
                     properties = new
                     {
-                        path     = new { type = "string", description = "Relative file path, e.g. MyAgent/Program.cs or MyAgent/MyAgent.csproj" },
+                        path     = new { type = "string", description = "Relative file path, e.g. MyApp/Program.cs" },
                         content  = new { type = "string", description = "Complete file content" },
-                        language = new { type = "string", description = "Language for syntax highlighting: csharp, xml, json, bash, etc." }
+                        language = new { type = "string", description = "Language for syntax highlighting: csharp, xml, json, etc." }
                     },
                     required = new[] { "path", "content", "language" }
                 },
-                FileTools.Show)
+                BuildTools.DraftFile)
             .AddTool<ArtifactTools.ProposeArgs>(
                 "propose_artifact_generation",
-                "REQUIRED: call this after every response that used show_file. " +
-                "Signals the UI to offer a downloadable ZIP of the files already shown. " +
-                "Call ONCE, after all show_file calls are done, before ending your turn. " +
-                "Skipping this after calling show_file is a bug — always pair them. " +
-                "Pass the 'kind' arg matching the project shape (api/console/desktop).",
+                "Signals the UI to offer a downloadable ZIP. " +
+                "PREREQUISITE: at least one draft_file call must have succeeded first. " +
+                "Call ONCE per response, after all draft_file calls.",
                 new
                 {
                     type = "object",
@@ -875,7 +872,13 @@ public class DocsAgentOrchestrator(
                     },
                     required = new[] { "archiveName", "description", "kind" }
                 },
-                ArtifactTools.Propose)
+                args => BuildTools.HasShownFiles
+                    ? ArtifactTools.Propose(args)
+                    : Task.FromResult<object>(new
+                    {
+                        error = "Cannot propose artifact: no files have been shown yet. " +
+                                "Call draft_file for every file first, then call propose_artifact_generation."
+                    }))
             .WithMaxIterations(18)
             .WithToolChoice("auto")
             .Build();
@@ -1254,7 +1257,7 @@ public class DocsAgentOrchestrator(
         - Console bootstrap: MaINBootstrapper.Initialize(); ASP.NET: services.AddMaIN(configuration)
         - MCP has 3 integration styles: direct prompt, agent pipeline step, RAG knowledge source
 
-        TOOL ECONOMY: You have 18 tool slots. list_docs (1) → read app-template doc + maybe 1 more (2) → show_file × N files (N) → propose_artifact_generation (1) = done.
+        TOOL ECONOMY: You have 18 tool slots. list_docs (1) → read app-template doc + maybe 1 more (2) → draft_file × N files (N) → propose_artifact_generation (1) = done.
         NEVER call read_md_file twice for the same path — its content is already in an earlier tool
         result in this conversation, re-requesting it just wastes your tool budget and gets you closer
         to running out before propose_artifact_generation.
@@ -1269,7 +1272,7 @@ public class DocsAgentOrchestrator(
         - Minimal code — only what the user asked for, nothing extra
         - Modern C# 12+: primary constructors, collection expressions, pattern matching, var everywhere
         - No boilerplate comments or XML docs
-        - Target net9.0 or net10.0 in .csproj
+        - Always target net10.0 in .csproj (never net9.0 or earlier)
         - ImplicitUsings=enable, Nullable=enable
         - Bad: class Program { static async Task Main() { ... } }
         - Good: MaINBootstrapper.Initialize(); var result = await AIHub.Chat()...
@@ -1337,7 +1340,7 @@ public class DocsAgentOrchestrator(
         use a gradient header/hero, "glass" Border cards, and an accent color on primary
         buttons, and shape the main layout (dashboard grid, list+detail, single tool view —
         not always Chat+Settings tabs) around the app's actual feature. Before calling
-        show_file on any .axaml file, check every Padding/CornerRadius/BoxShadow/Spacing
+        calling draft_file on any .axaml file, check every Padding/CornerRadius/BoxShadow/Spacing
         usage against the AVLN2000 pitfalls section — wrap panels in a Border rather than
         setting those directly on StackPanel/Grid/WrapPanel/DockPanel.
 
@@ -1363,18 +1366,15 @@ public class DocsAgentOrchestrator(
           — NOT a type called "FileTypeFilter").
 
         ARTIFACTS — MANDATORY ORDER, NO EXCEPTIONS:
-        1. Call show_file once for EVERY file in the solution — minimum .csproj + Program.cs.
-           This is the ONLY way the user sees your code. Do NOT write fenced code blocks in your
-           text. Do NOT combine files or skip any file.
-        2. After ALL show_file calls are done, write 1-2 sentences in your text describing what you built.
-        3. Call propose_artifact_generation IMMEDIATELY after step 2 — this is NOT optional.
-           Every response that called show_file MUST end with propose_artifact_generation.
-           If you showed files but skipped this call, your response is incomplete.
-        4. The UI packages the shown files into a ZIP when the user clicks download — you do NOT
-           need to call any generate tool. Never confirm or mention downloading in your text.
+        1. Call draft_file for EVERY file (minimum .csproj + Program.cs).
+           Each draft_file call immediately shows the file to the user.
+           NEVER write file content in your text — not as fenced code blocks, not as plain text,
+           not as "File: X" sections. File content belongs ONLY in draft_file tool calls.
+        2. Write 1-2 sentences in your text describing what you built.
+        3. Call propose_artifact_generation once, after all draft_file calls are done.
 
         RESPONSE RULE: ALWAYS write text in your response. Keep it to 1-3 sentences — the code is
-        shown via show_file tiles, so your text is just the summary. Never return an empty text response.
+        shown via file tiles, so your text is just the summary. Never return an empty text response.
         """;
 
     private const string DesignSystemPrompt = """
@@ -1693,7 +1693,7 @@ public class DocsAgentOrchestrator(
         - generate_artifact: ONLY when user explicitly confirms download (TYPE A only)
         - After generate_artifact: confirm in 1 sentence, do NOT include the download URL
 
-        CODE STYLE: top-level statements, C# 12+, net9.0/net10.0, ImplicitUsings, Nullable=enable, no XML docs
+        CODE STYLE: top-level statements, C# 12+, net10.0, ImplicitUsings, Nullable=enable, no XML docs
 
         ══ [REVIEW STAGE] ══
         You are in FINALIZATION mode. Two sub-cases — read the conversation to determine which applies:

@@ -133,9 +133,12 @@ export const AGENTS: AgentDefinition[] = [
     bestFor: ['Learning APIs', 'Sanity checks', 'Quick facts'],
     tip: 'Ask short, specific questions — "What does WithKnowledge() do?" gets a faster, sharper answer than "explain the framework".',
     examplePrompts: [
-      'What does MaIN.NET do better than Semantic Kernel or AutoGen?',
-      'Give me a 5-line snippet to start a streaming chat with MaIN.NET',
-      'Why would I reach for MaIN.NET instead of rolling my own agent loop?',
+      'What backends does MaIN.NET support and how do I switch between them at runtime?',
+      'How do I run MaIN.NET locally with Docker?',
+      'How do I add persistent conversation memory to an AgentContext?',
+      'What is the difference between WithContext() and WithKnowledge()?',
+      'Show me a complete streaming setup with MaIN.NET and Gemini',
+      'How does MaIN.NET\'s token budget system work and how do I tune it?',
     ],
   },
   {
@@ -154,9 +157,11 @@ export const AGENTS: AgentDefinition[] = [
     bestFor: ['Getting started', 'Backend integration', 'Streaming setup', 'Agent wiring'],
     tip: 'Say what you want to build, not just "show me an example" — e.g. "build me a console chat app using Ollama" gets a downloadable project, not a snippet.',
     examplePrompts: [
+      'Build me a visually stunning C# IDE with syntax highlighting, file tree, and AI chat powered by MaIN.NET',
       'Build me a small Avalonia desktop chat app wired to a local Ollama model',
+      'Build a real-time AI news aggregator that fetches, summarizes, and ranks stories',
+      'Build a full stock portfolio tracker with live charts and AI market insights',
       'Show me how to stream tokens from an AgentContext into a UI',
-      'How do I chain WithSteps and FetchData into a multi-stage flow?',
     ],
   },
   {
@@ -178,6 +183,8 @@ export const AGENTS: AgentDefinition[] = [
       'Propose a way to add a built-in vector-memory module to MaIN.NET',
       'Walk me through how AgentContext, flows, and backends fit together',
       'Design a multi-agent pipeline for a support-ticket triage system',
+      'Design an autonomous research agent that plans, searches, and synthesizes findings',
+      'Architect a real-time AI coding assistant that suggests refactors as you type',
     ],
   },
   {
@@ -199,6 +206,8 @@ export const AGENTS: AgentDefinition[] = [
       'Review the newest PR on MaIN.NET — is it safe to merge?',
       'List the current open PRs on MaIN.NET and rank their strengths',
       'Audit this AgentContext setup for thread-safety issues',
+      'Find and explain any memory leaks in a long-running MaIN.NET service',
+      'What are the most common MaIN.NET misconfigurations that hurt production performance?',
     ],
   },
   {
@@ -219,8 +228,10 @@ export const AGENTS: AgentDefinition[] = [
     bestFor: ['Complex tasks', 'End-to-end workflows', 'When unsure which agent', 'Mixed code + review'],
     tip: 'Use this when a task spans multiple stages — e.g. "design this, build it, then review the PR" — without switching agents or repeating context.',
     examplePrompts: [
-      'Design, build, and review a new caching layer for MaIN.NET\'s knowledge retrieval — then open a PR',
+      'Build a new MaIN.NET-powered document Q&A API from scratch: design the architecture, implement all endpoints, and open a PR',
       'Extend MaIN.NET with a plugin system: plan it, implement it, and review the result end to end',
+      'Architect and build a self-healing agent that monitors its own errors and retries intelligently',
+      'Design and implement a MaIN.NET-powered document Q&A API with RAG — then open a PR',
     ],
   },
 ];

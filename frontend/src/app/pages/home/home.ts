@@ -54,6 +54,76 @@ export class Home implements OnDestroy {
     '(づ￣ ³￣)づ', '乁( ◔ ౪◔)「', '(ಥ﹏ಥ)', '┬──┬ ノ(°–°ノ)',
   ];
 
+  private readonly LONG_THINKING_MSGS = [
+    'still thinking...',
+    'your coffee is getting cold',
+    'the AI has opinions, apparently',
+    'not buffering, just dramatic',
+    'cooking something ambitious',
+    'calculating the meaning of your request',
+    'taking the scenic route',
+    'peak AI: impressive and slow',
+    'please hold, contemplating the universe',
+    'this is fine ☕',
+    'big thoughts take big time',
+    'no, it has not crashed. probably.',
+    'reticulating splines...',
+    'somewhere a GPU is sweating',
+    'vibes: focused but slow',
+    'it read your question three times',
+    'model is having a moment',
+    'deep in thought. very deep.',
+    'the tokens are forming. slowly.',
+    'we asked nicely. it\'s thinking.',
+    'crafting a response worthy of the wait',
+    'loading intelligence...',
+    'consulting the void',
+    'neurons firing. eventually.',
+    'it knows. it\'s just deciding how to say it.',
+    'thinking so hard you can almost hear it',
+    'patience is a virtue. allegedly.',
+    'the answer exists. somewhere in there.',
+    'technically not stuck',
+    'a masterpiece takes time',
+    'running on vibes and compute',
+    'it paused for dramatic effect',
+    'your prompt was very inspiring apparently',
+    'somewhere a transformer is crying',
+    'has not given up. confirmed.',
+    'almost certainly nearly done',
+    'what is time, really',
+    'reading between the lines of your request',
+    'the weights are doing their thing',
+    'staring into the token abyss',
+    'hold on, it\'s getting good',
+    'three more seconds. probably.',
+    'okay this one is genuinely complex',
+    'the model is built different',
+    'philosophically speaking, still loading',
+  ];
+
+  thinkingSeconds = signal(0);
+  private thinkingTimer: ReturnType<typeof setInterval> | null = null;
+
+  longThinkingMsg = computed(() => {
+    const s = this.thinkingSeconds();
+    if (s < 30) return null;
+    const idx = Math.floor((s - 30) / 8) % this.LONG_THINKING_MSGS.length;
+    return this.LONG_THINKING_MSGS[idx];
+  });
+
+  private startThinkingTimer() {
+    this.thinkingSeconds.set(0);
+    this.thinkingTimer = setInterval(() => {
+      this.ngZone.run(() => this.thinkingSeconds.update(s => s + 1));
+    }, 1000);
+  }
+
+  private stopThinkingTimer() {
+    if (this.thinkingTimer) { clearInterval(this.thinkingTimer); this.thinkingTimer = null; }
+    this.thinkingSeconds.set(0);
+  }
+
   agents = AGENTS;
   heroPromptIndex = signal(0);
   heroPromptLaunching = signal(false);
@@ -175,6 +245,7 @@ export class Home implements OnDestroy {
     if (this.selectedAgent().id === agent.id) return;
     if (this.hasMessages()) this.clear();
     this.selectedAgent.set(agent);
+    this.hoveredAgent.set(null);
   }
 
   showAgentInfo(agent: AgentDefinition) {
@@ -234,6 +305,7 @@ export class Home implements OnDestroy {
     this.messages.update(m => [...m, { role: 'assistant', content: '', streaming: true, agentId: isFlow ? 'design' : undefined }]);
     this.currentFace.set(this.ASCII_FACES[Math.floor(Math.random() * this.ASCII_FACES.length)]);
     this.isStreaming.set(true);
+    this.startThinkingTimer();
     setTimeout(() => this.scrollToBottom(), 60);
 
     try {
@@ -299,6 +371,7 @@ export class Home implements OnDestroy {
         return updated;
       });
     } finally {
+      this.stopThinkingTimer();
       this.isStreaming.set(false);
       this.saveToRecent();
     }
@@ -399,7 +472,7 @@ export class Home implements OnDestroy {
       };
       this.inputText.set(
         `Please regenerate this as a ${labels[kind]} (read app-template-${kind}.md first), ` +
-        `call show_file for each new file, then call propose_artifact_generation. Archive name: ${proposal?.archiveName ?? 'app.zip'}.`
+        `call draft_file for each new file, then try_build to compile them, then propose_artifact_generation. Archive name: ${proposal?.archiveName ?? 'app.zip'}.`
       );
       this.send();
       return;
@@ -411,8 +484,8 @@ export class Home implements OnDestroy {
     const archiveName = proposal?.archiveName ?? 'artifact.zip';
 
     if (files.length === 0) {
-      // Fallback: ask agent to re-show files (edge case — shouldn't normally happen)
-      this.inputText.set(`Please call show_file for each file and then propose_artifact_generation. Archive name: ${archiveName}.`);
+      // No files captured yet — ask the agent to produce them first
+      this.inputText.set(`Please call draft_file for each file, then try_build to compile them, then propose_artifact_generation. Archive name: ${archiveName}.`);
       this.send();
       return;
     }
@@ -421,19 +494,31 @@ export class Home implements OnDestroy {
     this.isStreaming.set(true);
     try {
       const url = await this.chatService.generateArtifact(archiveName, files);
-      // Inject a download URL into the last assistant message so the download card appears
+      // Inject the download URL into the message that holds the files
       this.messages.update(msgs => {
         const updated = [...msgs];
-        const idx = updated.length - 1 - [...updated].reverse().findIndex(m => m.role === 'assistant' && m.filesProposed?.length);
-        if (idx >= 0 && idx < updated.length) {
+        const reversedIdx = [...updated].reverse().findIndex(m => m.role === 'assistant' && m.filesProposed?.length);
+        if (reversedIdx >= 0) {
+          const idx = updated.length - 1 - reversedIdx;
           updated[idx] = { ...updated[idx], artifactUrl: url };
         }
         return updated;
       });
-    } catch {
-      // Fallback to agent if direct call fails
-      this.inputText.set(`Please call show_file for each file and then propose_artifact_generation. Archive name: ${archiveName}.`);
-      this.send();
+    } catch (err: any) {
+      // Generation failed — restore the proposal prompt so the user can retry.
+      // Do NOT call send() here: that would re-run the agent and create the "propose → Generate → propose" loop.
+      const status = err?.status ? ` (HTTP ${err.status})` : '';
+      console.error('generateArtifact failed', err);
+      this.messages.update(msgs => [
+        ...msgs,
+        { role: 'assistant', content: `Artifact generation failed${status}. Click Generate to retry.`, streaming: false },
+      ]);
+      // Re-show the prompt so the user can try again without re-running the agent.
+      if (proposal) {
+        this.artifactProposal.set(proposal);
+        this.selectedArtifactKind.set(proposal.kind);
+        this.showArtifactPrompt.set(true);
+      }
     } finally {
       this.isStreaming.set(false);
     }
@@ -558,6 +643,7 @@ export class Home implements OnDestroy {
       const msgIndex = this.messages().length - 1;
       this.currentFace.set(this.ASCII_FACES[Math.floor(Math.random() * this.ASCII_FACES.length)]);
       this.isStreaming.set(true);
+      this.startThinkingTimer();
       setTimeout(() => this.scrollToBottom(), 60);
 
       try {
@@ -576,6 +662,7 @@ export class Home implements OnDestroy {
           return updated;
         });
       } finally {
+        this.stopThinkingTimer();
         this.isStreaming.set(false);
         this.saveToRecent();
       }
@@ -587,6 +674,7 @@ export class Home implements OnDestroy {
       const msgIndex = this.messages().length - 1;
       this.currentFace.set(this.ASCII_FACES[Math.floor(Math.random() * this.ASCII_FACES.length)]);
       this.isStreaming.set(true);
+      this.startThinkingTimer();
       setTimeout(() => this.scrollToBottom(), 60);
 
       try {
@@ -615,6 +703,7 @@ export class Home implements OnDestroy {
           return updated;
         });
       } finally {
+        this.stopThinkingTimer();
         this.isStreaming.set(false);
         this.saveToRecent();
       }
@@ -998,6 +1087,7 @@ export class Home implements OnDestroy {
   ngOnDestroy() {
     this.chatService.abort();
     if (this.heroPromptTimer) clearInterval(this.heroPromptTimer);
+    this.stopThinkingTimer();
   }
 
   renderMarkdown(content: string, artifactUrl?: string): string {

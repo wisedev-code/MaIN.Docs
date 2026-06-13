@@ -188,8 +188,7 @@ const FALLBACK_MANIFEST = {
     {
       title: 'Deployment',
       entries: [
-        { slug: 'docker',    title: 'Docker' },
-        { slug: 'inferpage', title: 'InferPage' },
+        { slug: 'docker', title: 'Docker' },
       ]
     }
   ]
