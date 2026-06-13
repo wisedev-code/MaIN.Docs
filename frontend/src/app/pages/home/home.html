@@ -153,59 +153,6 @@
                 </div>
               }
 
-              @if (msg.artifactUrl) {
-                <a class="artifact-card" [href]="msg.artifactUrl" target="_blank" [attr.download]="extractArchiveName(msg.artifactUrl)">
-                  <div class="arc-file-icon">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                      <polyline points="14 2 14 8 20 8"/>
-                      <line x1="10" y1="12" x2="10" y2="12"/>
-                      <line x1="10" y1="15" x2="10" y2="15"/>
-                      <line x1="10" y1="18" x2="10" y2="18"/>
-                      <line x1="14" y1="12" x2="14" y2="12"/>
-                      <line x1="14" y1="15" x2="14" y2="15"/>
-                      <line x1="14" y1="18" x2="14" y2="18"/>
-                    </svg>
-                  </div>
-                  <div class="arc-info">
-                    <span class="arc-name">{{ extractArchiveName(msg.artifactUrl) }}</span>
-                    <span class="arc-meta">Complete .NET project · Unzip &amp; run</span>
-                  </div>
-                  <div class="arc-dl-btn">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                      <polyline points="7 10 12 15 17 10"/>
-                      <line x1="12" y1="15" x2="12" y2="3"/>
-                    </svg>
-                    Download
-                  </div>
-                  <button type="button" class="arc-run-btn" [class.active]="runModalArtifactUrl() === msg.artifactUrl" (click)="$event.preventDefault(); $event.stopPropagation(); openRunModal(msg.artifactUrl!)">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                      <polyline points="4 17 10 11 4 5"/>
-                      <line x1="12" y1="19" x2="20" y2="19"/>
-                    </svg>
-                    Start in terminal
-                  </button>
-                  <span class="arc-info-wrap" tabindex="0" (click)="$event.preventDefault(); $event.stopPropagation()">
-                    <span class="arc-info-btn" aria-label="Prerequisites">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="10"/>
-                        <line x1="12" y1="16" x2="12" y2="11"/>
-                        <line x1="12" y1="8" x2="12" y2="8"/>
-                      </svg>
-                    </span>
-                    <div class="arc-info-popover">
-                      <div class="arc-info-popover-title">Prerequisites — {{ artifactPrerequisites(msg.artifactKind).label }}</div>
-                      <ul>
-                        @for (item of artifactPrerequisites(msg.artifactKind).items; track item) {
-                          <li>{{ item }}</li>
-                        }
-                      </ul>
-                    </div>
-                  </span>
-                </a>
-              }
-
               @if (msg.issueUrl) {
                 <a class="issue-card" [href]="msg.issueUrl" target="_blank" rel="noopener noreferrer">
                   <div class="ic-icon">
@@ -354,6 +301,59 @@
                     </div>
                   }
                 </div>
+              }
+
+              @if (msg.artifactUrl) {
+                <a class="artifact-card" [href]="msg.artifactUrl" target="_blank" [attr.download]="extractArchiveName(msg.artifactUrl)">
+                  <div class="arc-file-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                      <polyline points="14 2 14 8 20 8"/>
+                      <line x1="10" y1="12" x2="10" y2="12"/>
+                      <line x1="10" y1="15" x2="10" y2="15"/>
+                      <line x1="10" y1="18" x2="10" y2="18"/>
+                      <line x1="14" y1="12" x2="14" y2="12"/>
+                      <line x1="14" y1="15" x2="14" y2="15"/>
+                      <line x1="14" y1="18" x2="14" y2="18"/>
+                    </svg>
+                  </div>
+                  <div class="arc-info">
+                    <span class="arc-name">{{ extractArchiveName(msg.artifactUrl) }}</span>
+                    <span class="arc-meta">Complete .NET project · Unzip &amp; run</span>
+                  </div>
+                  <div class="arc-dl-btn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="7 10 12 15 17 10"/>
+                      <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    Download
+                  </div>
+                  <button type="button" class="arc-run-btn" [class.active]="runModalArtifactUrl() === msg.artifactUrl" (click)="$event.preventDefault(); $event.stopPropagation(); openRunModal(msg.artifactUrl!)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="4 17 10 11 4 5"/>
+                      <line x1="12" y1="19" x2="20" y2="19"/>
+                    </svg>
+                    Start in terminal
+                  </button>
+                  <span class="arc-info-wrap" tabindex="0" (click)="$event.preventDefault(); $event.stopPropagation()">
+                    <span class="arc-info-btn" aria-label="Prerequisites">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="16" x2="12" y2="11"/>
+                        <line x1="12" y1="8" x2="12" y2="8"/>
+                      </svg>
+                    </span>
+                    <div class="arc-info-popover">
+                      <div class="arc-info-popover-title">Prerequisites — {{ artifactPrerequisites(msg.artifactKind).label }}</div>
+                      <ul>
+                        @for (item of artifactPrerequisites(msg.artifactKind).items; track item) {
+                          <li>{{ item }}</li>
+                        }
+                      </ul>
+                    </div>
+                  </span>
+                </a>
               }
             </div>
           </div>
