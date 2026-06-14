@@ -197,3 +197,60 @@
   ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
   li { margin-bottom: 0.3rem; }
 }
+
+// ── Mobile ─────────────────────────────────────────────
+@media (max-width: 768px) {
+  // Stack sidebar above content instead of fixed side panel
+  .docs-layout {
+    flex-direction: column;
+    padding-top: 56px;
+  }
+
+  .sidebar {
+    position: relative;
+    top: 0;
+    left: 0;
+    bottom: auto;
+    width: 100%;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 0.75rem 0 0;
+    overflow-y: visible;
+  }
+
+  .sidebar-search {
+    margin: 0 0.875rem 0.625rem;
+  }
+
+  // Compact nav: limited height so it doesn't eat the whole screen
+  .sidebar-nav {
+    max-height: 200px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    padding: 0 0.875rem 0.625rem;
+    gap: 0.75rem;
+  }
+
+  .nav-entry {
+    padding: 5px 8px;
+    font-size: 13px;
+  }
+
+  // Content becomes full width
+  .doc-content {
+    margin-left: 0;
+    padding: 1.5rem 1.125rem 3rem;
+    max-width: 100%;
+  }
+
+  // Tighten markdown headings on narrow screens
+  .markdown-body {
+    h1 { font-size: 1.5rem; }
+    h2 { font-size: 1.15rem; }
+    h3 { font-size: 1rem; }
+
+    // Code blocks: let them scroll horizontally
+    pre { overflow-x: auto; font-size: 12.5px; }
+  }
+}

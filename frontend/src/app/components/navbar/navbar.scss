@@ -175,3 +175,8 @@
     color: var(--text-muted);
   }
 }
+
+@media (max-width: 768px) {
+  .navbar { padding: 0 1rem; }
+  .search-wrap { display: none; }
+}

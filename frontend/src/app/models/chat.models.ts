@@ -136,7 +136,7 @@ export const AGENTS: AgentDefinition[] = [
       'What backends does MaIN.NET support and how do I switch between them at runtime?',
       'How do I run MaIN.NET locally with Docker?',
       'How do I add persistent conversation memory to an AgentContext?',
-      'What is the difference between WithContext() and WithKnowledge()?',
+      'How does MaIN.NET compare to Semantic Kernel and Microsoft Agent Framework?',
       'Show me a complete streaming setup with MaIN.NET and Gemini',
       'How does MaIN.NET\'s token budget system work and how do I tune it?',
     ],

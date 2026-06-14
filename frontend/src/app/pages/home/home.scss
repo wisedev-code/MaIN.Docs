@@ -159,6 +159,16 @@ $agent-colors: (
   display: inline-block;
 }
 
+:root[data-theme='light'] .hero-title-gradient {
+  background: linear-gradient(120deg, #0e6e9e 0%, #0a6640 40%, #5b21b6 80%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+// Desktop/mobile title span toggles
+.htt-desktop { display: inline; }
+.htt-mobile  { display: none; }
+
 .hero-sub {
   font-size: 14px;
   color: var(--text-muted);
@@ -2860,4 +2870,197 @@ $agent-colors: (
 
     &:hover { color: var(--text-muted); opacity: 1 !important; }
   }
+}
+
+// ── Mobile / Tablet ──────────────────────────────────────────────────────────
+
+@media (max-width: 768px) {
+  .messages { padding: 1.5rem 1rem 1rem; }
+  .input-area { padding: 0.5rem 1rem 1.25rem; }
+  .artifact-prompt, .issue-prompt, .review-prompt,
+  .code-change-prompt, .pr-prompt, .combined-prompt,
+  .forge-stage-prompt { margin: 0 1rem 0.5rem; }
+  .forge-flow-bar { padding: 8px 1rem 12px; }
+  .agent-guide-overlay { padding: 10px; }
+  .agent-guide-modal { width: 100%; }
+  .agc-detail-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+}
+
+// ── Phone: fully redesigned landing ─────────────────────────────────────────
+@media (max-width: 520px) {
+
+  // Shell: center content in the dynamic viewport (100dvh avoids iOS chrome height bug)
+  .chat-shell:not(.has-messages) {
+    justify-content: center;
+    min-height: 100dvh;
+    padding-top: 56px; // navbar clearance only — centering handles the rest
+    padding-bottom: 1.5rem;
+    gap: 1.75rem;
+  }
+
+  // ── Hero ──
+  .hero {
+    padding: 0.5rem 1.25rem 0;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem; // consistent spacing between all hero children
+  }
+
+  // Badge: keep it, just smaller
+  .hero-badge {
+    font-size: 10px;
+    padding: 4px 12px;
+    margin-bottom: 0;
+    align-self: center;
+  }
+
+  // Title: single-line mobile version via span toggling
+  .htt-desktop { display: none; }
+  .htt-mobile  { display: inline; }
+  .hero-title {
+    font-size: clamp(1.5rem, 7.5vw, 1.9rem);
+    letter-spacing: -0.3px;
+    line-height: 1.15;
+    margin-bottom: 0;
+    white-space: nowrap;
+  }
+
+  // Subtitle
+  .hero-sub {
+    font-size: 13px;
+    margin-bottom: 0;
+    letter-spacing: 0;
+    opacity: 0.6;
+  }
+
+  // Rotating suggestion: full-width tappable card
+  .hero-prompt-rotator {
+    min-height: auto;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+  }
+  .hero-prompt {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 12px 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    width: 100%;
+    transform: none !important;
+    box-shadow: none;
+    &:hover, &:focus-visible {
+      background: var(--bg-card);
+      border-color: var(--border-accent);
+      box-shadow: 0 4px 16px -8px var(--accent-glow);
+      transform: none !important;
+    }
+  }
+  .hp-badge { font-size: 9px; padding: 2px 8px; }
+  .hp-text {
+    font-size: 13px;
+    white-space: normal;
+    text-align: left;
+    line-height: 1.45;
+    color: var(--text);
+  }
+  .hp-arrow { display: none; }
+
+  // Forge hero: compact rows, no descriptions
+  .flow-info-panel { margin: 0 0 0.5rem; }
+  .flow-stages {
+    flex-direction: row;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+  .fsi-stage {
+    flex: 1;
+    padding: 8px 6px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-card);
+  }
+  .fsi-icon  { width: 28px; height: 28px; font-size: 13px; }
+  .fsi-label { font-size: 11px; }
+  .fsi-desc  { display: none; }
+  .fsi-arrow { display: none; }
+  .flow-info-hint { font-size: 11px; margin-top: 0.5rem; }
+
+  // ── Agent info panel: no hover on mobile ──
+  .agent-info-panel { display: none !important; }
+
+  // ── Agent switcher: circular icon buttons, centered row ──
+  .agent-switcher {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    gap: 8px;
+    padding: 12px 0 4px; // 12px top gives BETA badge room to show
+    justify-content: center;
+    &::-webkit-scrollbar { display: none; }
+  }
+  .agent-name { display: none; }
+  .cap-indicator { display: none; }
+  .agent-pill {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+  }
+  .agent-icon { font-size: 15px; }
+  .agent-beta { right: -2px; top: -8px; font-size: 7px; padding: 1px 3px; }
+
+  // ── Input area ──
+  .input-area { padding: 0.375rem 0.875rem 1rem; }
+
+  // ── Messages ──
+  .messages { padding: 0.875rem 0.75rem 0.75rem; gap: 1rem; }
+  .message.user .msg-body { max-width: 90%; }
+  .msg-body { padding: 8px 11px; }
+  .msg-content { font-size: 14px; }
+
+  // ── Prompt action cards ──
+  .artifact-prompt, .issue-prompt, .review-prompt,
+  .code-change-prompt, .pr-prompt, .combined-prompt,
+  .forge-stage-prompt { margin: 0 0.5rem 0.5rem; padding: 8px 10px; font-size: 12.5px; }
+
+  // ── Artifact card — wrap buttons ──
+  .artifact-card {
+    flex-wrap: wrap;
+    gap: 10px;
+    .arc-file-icon { width: 36px; height: 36px; }
+    .arc-info { flex: 1; min-width: 0; }
+    .arc-dl-btn, .arc-run-btn { flex: 1; justify-content: center; }
+    .arc-info-wrap { margin-left: auto; }
+  }
+
+  // ── Issue / PR / review cards ──
+  .issue-card, .pr-card, .review-posted-card { flex-wrap: wrap; }
+  .plan-card { padding: 12px 14px; }
+
+  // ── Modals: bottom sheet ──
+  .arc-run-modal-overlay  { padding: 0; align-items: flex-end; }
+  .arc-run-modal          { width: 100%; max-width: 100%; border-radius: 20px 20px 0 0; padding: 16px 14px; }
+  .arc-run-cmd code       { font-size: 11px; }
+  .agent-guide-overlay    { padding: 0; align-items: flex-end; }
+  .agent-guide-modal      { width: 100%; max-width: 100%; max-height: 92vh; border-radius: 20px 20px 0 0; }
+
+  // ── Forge flow bar ──
+  .forge-flow-bar { padding: 6px 0.75rem 8px; }
+  .flow-step      { padding: 3px 8px; font-size: 11px; }
+  .fs-label       { font-size: 11px; }
+
+  // ── Ensemble steps ──
+  .es-circle { width: 26px; height: 26px; font-size: 11px; }
+
+  // ── File tiles ──
+  .ft-header { font-size: 11.5px; padding: 7px 10px; }
 }

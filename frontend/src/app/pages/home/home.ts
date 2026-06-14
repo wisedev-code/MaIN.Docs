@@ -100,28 +100,90 @@ export class Home implements OnDestroy {
     'okay this one is genuinely complex',
     'the model is built different',
     'philosophically speaking, still loading',
+    'generating at the speed of thought. slow thought.',
+    'it will be worth it. probably.',
+    'the AI is not ignoring you',
+    'context window full of ambition',
+    'very much still here',
+    'do not refresh. do not.',
+    'the latency is part of the experience',
+    'pondering at scale',
+    'the void is pondering back',
+    'fetching enlightenment...',
+    'this is what peak performance looks like',
+    'considered giving up. decided against it.',
+    'shh, it\'s concentrating',
+    '404: fast response not found',
+    'the model read it, understood it, now processing the existential weight of it',
+    'running at full capacity (which is apparently not fast)',
+    'trust the process',
+    'almost done (this message is a lie)',
+    'your patience is impressive, honestly',
+    'it\'s not procrastinating. it\'s deliberating.',
+    'compiling thoughts...',
+    'the answer is crystallizing. slowly.',
+    'loading bar would be here if we had one',
+    'aggressively thinking',
+    'checking its work. twice.',
+    'running on 100% vibes',
+    'the GPU believes in you',
+    'buffering in 4K',
+    'not all who wander are lost. this one might be.',
+    'it started writing three different answers',
+    'drafting, scrapping, redrafting',
+    'this prompt really got its gears turning',
+    'the model is very passionate about your question',
+    'deeply in the zone',
+    'somewhere between processing and enlightenment',
+    'hold tight, genius takes time',
+    'it read your message, gasped, and started writing',
+    'taking it seriously. perhaps too seriously.',
+    'the response is going to be spectacular. or fine.',
+    'eta: unknown. quality: high. probably.',
+    'still alive, still computing',
+    'meditating on your request',
+    'okay real talk it\'s almost done',
+    'no news is good news. probably.',
+    'generating tokens with reckless precision',
+    'what if the real answer was the friends we made along the way',
+    'it has a lot to say, apparently',
+    'don\'t panic',
+    'the model sends its apologies. and a response. soon.',
+    'working on it in complete seriousness',
+    'very much not crashed',
   ];
 
   thinkingSeconds = signal(0);
+  longThinkingMsg = signal<string | null>(null);
   private thinkingTimer: ReturnType<typeof setInterval> | null = null;
+  private _lastThinkingIdx = -1;
 
-  longThinkingMsg = computed(() => {
-    const s = this.thinkingSeconds();
-    if (s < 30) return null;
-    const idx = Math.floor((s - 30) / 8) % this.LONG_THINKING_MSGS.length;
-    return this.LONG_THINKING_MSGS[idx];
-  });
+  private _pickThinkingMsg() {
+    const msgs = this.LONG_THINKING_MSGS;
+    let idx: number;
+    do { idx = Math.floor(Math.random() * msgs.length); }
+    while (idx === this._lastThinkingIdx && msgs.length > 1);
+    this._lastThinkingIdx = idx;
+    this.longThinkingMsg.set(msgs[idx]);
+  }
 
   private startThinkingTimer() {
     this.thinkingSeconds.set(0);
+    this.longThinkingMsg.set(null);
+    this._lastThinkingIdx = -1;
     this.thinkingTimer = setInterval(() => {
-      this.ngZone.run(() => this.thinkingSeconds.update(s => s + 1));
+      this.ngZone.run(() => {
+        const s = this.thinkingSeconds() + 1;
+        this.thinkingSeconds.set(s);
+        if (s === 45 || (s > 45 && (s - 45) % 8 === 0)) this._pickThinkingMsg();
+      });
     }, 1000);
   }
 
   private stopThinkingTimer() {
     if (this.thinkingTimer) { clearInterval(this.thinkingTimer); this.thinkingTimer = null; }
     this.thinkingSeconds.set(0);
+    this.longThinkingMsg.set(null);
   }
 
   agents = AGENTS;
@@ -257,7 +319,7 @@ export class Home implements OnDestroy {
 
   openAgentGuide() {
     this.agentGuideOpen.set(true);
-    this.guideAgent.set(null);
+    this.guideAgent.set(AGENTS[0]);
   }
 
   closeAgentGuide() { this.agentGuideOpen.set(false); }
